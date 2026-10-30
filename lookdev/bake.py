@@ -30,8 +30,16 @@ FILMS = [
      "negative": "kodak_vision3_250d", "print": "kodak_2383"},
     {"id": "vision500t", "name": "Vision3 500T", "detail": "Fast cinema negative · 2383 print",
      "negative": "kodak_vision3_500t", "print": "kodak_2383"},
+    {"id": "vision50d", "name": "Vision3 50D", "detail": "Fine-grain daylight cinema · 2383 print",
+     "negative": "kodak_vision3_50d", "print": "kodak_2383"},
     {"id": "portra400", "name": "Portra 400", "detail": "Stills negative · Endura paper",
      "negative": "kodak_portra_400", "print": "kodak_portra_endura"},
+    {"id": "ektar100", "name": "Ektar 100", "detail": "Vivid stills negative · Endura paper",
+     "negative": "kodak_ektar_100", "print": "kodak_portra_endura"},
+    {"id": "gold200", "name": "Gold 200", "detail": "Consumer negative · Supra Endura paper",
+     "negative": "kodak_gold_200", "print": "kodak_supra_endura"},
+    {"id": "pro400h", "name": "Fuji Pro 400H", "detail": "Stills negative · Crystal Archive paper",
+     "negative": "fujifilm_pro_400h", "print": "fujifilm_crystal_archive_typeii"},
 ]
 
 

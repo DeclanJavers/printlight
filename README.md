@@ -14,7 +14,11 @@ the image with its own film-print look.
    - Halation: energy above a threshold is blurred, tinted red and added back in scene light.
    - Film: a 48³ LUT per film stock (`Resources/Films`), applied in log space by `printlightShaper`
      plus `CIColorCube`. Each LUT is baked from a spectral simulation of a camera negative printed
-     onto print film (see Look development). Output is Display P3.
+     onto print film (see Look development). Output is Display P3. Stocks: Vision3 250D, 500T and 50D
+     on 2383 print; Portra 400 and Ektar 100 on Endura; Gold 200 on Supra Endura; Fuji Pro 400H on
+     Crystal Archive.
+   - Black lift (viewing flare): prints are made for a dark theatre, so a small adjustable lift keeps
+     their blacks from reading as crushed on a phone.
    - Grain is sized relative to the frame, so 12MP and 48MP shots look alike.
 4. **Save** (`Processing/PhotoLibrarySaver.swift`). It writes two Photos assets, the developed HEIC and
    the DNG. Photos refuses them as one RAW+processed pair (error 3300).
@@ -23,6 +27,11 @@ The live viewfinder runs the same kernels on the video feed. Those frames are al
 Apple, so `printlightUnrender` approximately undoes that first. **The viewfinder is a close guide,
 not an exact match.** Tap the thumbnail to see the true develop and to re-develop it with different
 settings.
+
+An exact viewfinder needs scene-referred preview frames, and iOS doesn't offer them alongside RAW
+stills. Setting the camera to Apple Log or Apple Log 2 disables photo capture (documented in
+`AVCaptureDevice.h` and `AVCapturePhotoOutput.h`). On an iPhone 17 Pro, all 17 HLG video formats
+were tested and none offers ProRAW or Bayer RAW stills.
 
 ## Building
 
@@ -58,7 +67,13 @@ python lookdev/bake.py 48          # writes Printlight/Resources/Films
 ```
 
 `lookdev/samples/` holds CC0 test RAWs from raw.pixls.us (git-ignored, see `SOURCES.md` there).
-Add your own DNGs there to build up a test set.
+Add your own DNGs there to build up a test set, then render every photo through every film:
+
+```bash
+sh lookdev/harness/build.sh         # Mac tool that decodes RAWs exactly like the app
+python lookdev/sheet.py             # one contact sheet per photo in lookdev/sheets/
+python lookdev/sheet.py lookdev/samples vision250d portra400   # only some films
+```
 
 ### Film data credit
 
@@ -78,5 +93,6 @@ setting is applied on top.
 
 ## Things to tune on a real device
 
-- The `printlightUnrender` curve, so the viewfinder matches the develop more closely.
-- On iPhone 15 Pro and later, Apple Log video could make the viewfinder exact. It isn't used yet.
+- The `printlightUnrender` curve, so the viewfinder matches the develop more closely. Pairs of
+  preview frames and developed shots of the same scene would let it be fitted from data.
+- Each capture prints `PRINTLIGHT TIMING` to the console (thumbnail, develop + encode, save).

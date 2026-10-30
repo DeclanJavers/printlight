@@ -30,7 +30,8 @@ enum RawDeveloper {
     /// `scale` < 1 gives a fast, smaller decode for interactive editing.
     static func sceneLinear(from dng: Data, scale: Float = 1) -> CIImage? {
         guard let image = decode(dng, appleRendering: false, scale: scale) else { return nil }
-        let gain = CGFloat(exp2(exposureMatch(for: dng)))
+        // A small decode can double as the exposure-match reference, saving a full RAW decode.
+        let gain = CGFloat(exp2(exposureMatch(for: dng, neutral: scale <= 0.2 ? image : nil)))
         return image.applyingFilter("CIColorMatrix", parameters: [
             "inputRVector": CIVector(x: gain, y: 0, z: 0, w: 0),
             "inputGVector": CIVector(x: 0, y: gain, z: 0, w: 0),
@@ -43,16 +44,20 @@ enum RawDeveloper {
     /// brightens it with its boost curve and local tone map; without this, Printlight
     /// renders everything about a stop dark. Only one number per shot is borrowed:
     /// none of Apple's local contrast ends up in the image.
-    static func exposureMatch(for dng: Data) -> Double {
+    /// Every ProRAW decode costs about the same whatever its output size, so pass an existing small
+    /// neutral decode as `neutral` when there is one.
+    static func exposureMatch(for dng: Data, neutral existing: CIImage? = nil) -> Double {
         let key = dng.hashValue
         if let cached = exposureCache.withLock({ $0[key] }) { return cached }
 
-        guard let neutral = decode(dng, appleRendering: false, scale: 0.08),
+        guard let neutral = existing ?? decode(dng, appleRendering: false, scale: 0.08),
               let apple = decode(dng, appleRendering: true, scale: 0.08),
               let sceneMedian = medianLuminance(of: neutral), sceneMedian > 1e-5,
               let appleMedian = medianLuminance(of: apple) else { return 0 }
-        // All baked films print mid grey to the same value, so the default film's grey curve serves for each.
-        let target = FilmLibrary.shared.defaultFilm.sceneStops(forDisplayLuminance: appleMedian)
+        // All baked films print mid grey to the same value, so the default film's grey curve serves
+        // for each. The curve is before black lift, so take the default lift back out of the target.
+        let lift = LookParameters.standard.blackLift
+        let target = FilmLibrary.shared.defaultFilm.sceneStops(forDisplayLuminance: appleMedian * (1 + lift) - lift)
         let current = log2(sceneMedian / 0.18)
         let stops = min(max(target - current, -1), 3)
 

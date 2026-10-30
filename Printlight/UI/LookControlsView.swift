@@ -137,6 +137,7 @@ private struct LookSection: Identifiable {
         [
             LookSection(title: "TONE", rows: [
                 LookParameterSpec(title: "Exposure", keyPath: \.exposure, range: -3...3, format: "%+.2f"),
+                LookParameterSpec(title: "Black lift", keyPath: \.blackLift, range: 0...0.04, format: "%.3f"),
             ]),
             LookSection(title: "TEXTURE", rows: [
                 LookParameterSpec(title: "Halation", keyPath: \.halation, range: 0...0.5, format: "%.2f"),

@@ -47,9 +47,10 @@ float4 printlightUnrender(sample_t display) {
     return float4(MID_GREY * exp2(e), display.a);
 }
 
-/// Grain in sqrt-encoded display space. noise is blurred uniform noise in [0,1].
-float4 printlightGrain(sample_t image, sample_t noise, float amount) {
-    float3 y = image.rgb;
+/// Display-linear finishing after the film LUT: black lift (viewing flare, mirrors black_lift in
+/// lookdev/film.py), then grain in sqrt-encoded space. noise is blurred uniform noise in [0,1].
+float4 printlightFinish(sample_t image, sample_t noise, float amount, float lift) {
+    float3 y = (image.rgb + lift) / (1.0f + lift);
     float3 v = sign(y) * sqrt(abs(y));
     float lv = clamp(dot(v, float3(0.2126f, 0.7152f, 0.0722f)), 0.0f, 1.0f);
     float env = 0.35f + 2.6f * lv * (1.0f - lv);

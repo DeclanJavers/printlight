@@ -6,3 +6,6 @@ __pycache__/
 lookdev/samples/*
 !lookdev/samples/SOURCES.md
 *.f32
+lookdev/sheets/
+lookdev/harness/build/
+lookdev/samples/.cache/

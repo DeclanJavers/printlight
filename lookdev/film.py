@@ -146,8 +146,6 @@ class FilmChain:
     mid_grey_out: float = 0.15         # display-linear luminance the scene's mid grey prints to
     exposure: float = 0.0              # stops, applied to the scene before the negative
     coupler_strength: float = 0.25     # interlayer (DIR coupler) inhibition: raises colour saturation
-    flare: float = 0.006               # viewing flare as a fraction of white: prints are made for a dark
-                                       # theatre; on a phone in normal light the deepest blacks read as crushed
     printer_offsets: np.ndarray = field(default_factory=lambda: np.zeros(3))  # printer-light trims (log10)
 
     @cached_property
@@ -216,8 +214,7 @@ class FilmChain:
     def _display(self, print_layer_density: np.ndarray) -> np.ndarray:
         spectral = print_layer_density @ self.prt.dye_density.T + self.prt.base_density
         xyz = self._view_xyz(spectral) @ self.white_adaptation.T
-        rgb = xyz @ XYZ_TO_SRGB.T
-        return (rgb + self.flare) / (1.0 + self.flare)
+        return xyz @ XYZ_TO_SRGB.T
 
     @cached_property
     def printer_lights(self) -> np.ndarray:
@@ -254,6 +251,17 @@ class FilmChain:
 
 # ---------------------------------------------------------------- helpers
 
+DEFAULT_BLACK_LIFT = 0.01
+
+
+def black_lift(y: np.ndarray, amount: float = DEFAULT_BLACK_LIFT) -> np.ndarray:
+    """Viewing flare as a fraction of white, applied after the film (the app does the same).
+
+    Prints are made for a dark theatre; on a phone in normal light their deepest blacks read as
+    crushed. Mirrors printlightFinish in Look.ci.metal.
+    """
+    return (y + amount) / (1.0 + amount)
+
 
 def encode_srgb(y: np.ndarray) -> np.ndarray:
     y = np.clip(y, 0.0, 1.0)
@@ -278,10 +286,10 @@ def main(argv: list[str]) -> None:
         from look import test_chart
 
         chain = FilmChain(*argv[3:5]) if len(argv) > 3 else FilmChain()
-        save_png(chain.render(test_chart()), argv[2])
+        save_png(black_lift(chain.render(test_chart())), argv[2])
     elif len(argv) >= 4 and argv[1] == "linear":
         chain = FilmChain(*argv[4:6]) if len(argv) > 4 else FilmChain()
-        save_png(chain.render(load_linear_dump(argv[2])), argv[3])
+        save_png(black_lift(chain.render(load_linear_dump(argv[2]))), argv[3])
     else:
         print(__doc__)
 

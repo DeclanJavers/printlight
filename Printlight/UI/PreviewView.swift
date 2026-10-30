@@ -12,6 +12,8 @@ final class PreviewRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
 
     private let lock = NSLock()
     private var latestFrame: CIImage?
+    /// Last image drawn to the screen, look included: the instant thumbnail at capture.
+    private var lastDrawn: CIImage?
     private var frameCount: UInt64 = 0
     private var _params = LookParameters.standard
     private var _lookEnabled = true
@@ -72,6 +74,8 @@ final class PreviewRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             image = FilmLook.shared.renderPreview(displayReferred: image, params: params, frame: count)
         }
 
+        lock.withLock { lastDrawn = image }
+
         let destination = CIRenderDestination(
             width: Int(target.width),
             height: Int(target.height),
@@ -83,6 +87,15 @@ final class PreviewRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         _ = try? context.startTask(toRender: image, to: destination)
         commandBuffer.present(drawable)
         commandBuffer.commit()
+    }
+
+    /// What the viewfinder shows right now, as a small image.
+    func snapshot(maxDimension: CGFloat = 300) -> UIImage? {
+        guard let image = lock.withLock({ lastDrawn }), image.extent.width > 0 else { return nil }
+        let scale = min(maxDimension / max(image.extent.width, image.extent.height), 1)
+        let small = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        guard let cg = context.createCGImage(small, from: small.extent, format: .RGBA8, colorSpace: colorSpace) else { return nil }
+        return UIImage(cgImage: cg)
     }
 
     /// Converts a point in the view to normalized coordinates of the upright camera frame.

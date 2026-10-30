@@ -307,7 +307,7 @@ struct CameraView: View {
         } label: {
             ZStack {
                 shape.fill(Color.white.opacity(0.05))
-                if let thumb = model.lastShot?.thumbnail {
+                if let thumb = model.thumbnail {
                     Image(uiImage: thumb)
                         .resizable()
                         .scaledToFill()
@@ -335,7 +335,7 @@ struct CameraView: View {
     private var shutterButton: some View {
         Button {
             shutterPresses += 1
-            camera.capture()
+            model.capture()
         } label: {
             EmptyView()
         }

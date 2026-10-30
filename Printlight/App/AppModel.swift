@@ -24,6 +24,9 @@ final class AppModel: ObservableObject {
         didSet { preview.lookEnabled = lookEnabled }
     }
     @Published private(set) var lastShot: Shot?
+    /// Shown on the thumbnail button: the viewfinder frame at the moment of capture, replaced by
+    /// the real develop when it's ready.
+    @Published private(set) var thumbnail: UIImage?
     @Published private(set) var developingCount = 0
     @Published var message: String?
 
@@ -37,26 +40,45 @@ final class AppModel: ObservableObject {
         camera.onCaptureError = { [weak self] text in self?.message = text }
     }
 
+    func capture() {
+        if let snapshot = preview.snapshot() { thumbnail = snapshot }
+        camera.capture()
+    }
+
+    /// Thumbnail first so the shot shows up quickly, then the full-resolution develop and save.
     private func handleCapture(_ dng: Data) {
         let params = self.params
         developingCount += 1
         developQueue.async {
-            let result: Result<(Data, UIImage?), Error> = Result {
-                let heic = try RawDeveloper.heic(from: dng, params: params)
-                let thumb = RawDeveloper.develop(dng, params: params, scale: 0.15).flatMap(RawDeveloper.uiImage)
-                return (heic, thumb)
-            }
+            let clock = ContinuousClock()
+            let start = clock.now
+            let thumb = RawDeveloper.develop(dng, params: params, scale: 0.15).flatMap(RawDeveloper.uiImage)
+            let thumbDone = clock.now
             Task { @MainActor in
-                self.developingCount -= 1
+                if let thumb {
+                    self.lastShot = Shot(dng: dng, thumbnail: thumb)
+                    self.thumbnail = thumb
+                }
+            }
+
+            let result = Result { try RawDeveloper.heic(from: dng, params: params) }
+            let heicDone = clock.now
+            Task { @MainActor in
+                defer { self.developingCount -= 1 }
                 switch result {
-                case .success(let (heic, thumb)):
-                    if let thumb { self.lastShot = Shot(dng: dng, thumbnail: thumb) }
+                case .success(let heic):
                     await self.save(heic: heic, dng: dng)
+                    Self.logTiming(thumb: thumbDone - start, heic: heicDone - thumbDone, save: clock.now - heicDone, bytes: dng.count)
                 case .failure(let error):
                     self.message = error.localizedDescription
                 }
             }
         }
+    }
+
+    private static func logTiming(thumb: Duration, heic: Duration, save: Duration, bytes: Int) {
+        func s(_ d: Duration) -> String { String(format: "%.2fs", Double(d.components.seconds) + Double(d.components.attoseconds) / 1e18) }
+        print("PRINTLIGHT TIMING dng \(bytes / 1_000_000)MB  thumbnail \(s(thumb))  develop+encode \(s(heic))  save \(s(save))")
     }
 
     @discardableResult
