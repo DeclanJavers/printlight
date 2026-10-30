@@ -1,0 +1,441 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		06061C6B2374D554AA13A2D4 /* PrintlightApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBFC4C7A1ECF3D337A30BC1D /* PrintlightApp.swift */; };
+		15BD9B92781A3EB7C3426A1D /* Look.ci.metal in Sources */ = {isa = PBXBuildFile; fileRef = 3F90CA568E0E0B6DCFE88E9F /* Look.ci.metal */; };
+		1642CEE4AC65E0EA92CA8176 /* FilmLook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14ADBC02A20B74FC6E350A20 /* FilmLook.swift */; };
+		2ABCA2232146BDEAF645C73E /* vision250d.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = DCD66CC01525113EF898918D /* vision250d.cube.bin */; };
+		341D889A3C252759B822995F /* FilmLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCA0094CEFDA74172B664AC /* FilmLibrary.swift */; };
+		4A449236CEF781404DFD9468 /* LookParameters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48408AF81F0D7FFE8E2676E5 /* LookParameters.swift */; };
+		586D858288114ECF25C98D0E /* portra400.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 12334669E60EA1C6B16FB49D /* portra400.cube.bin */; };
+		588AB965AC9BB6D74A0D745B /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B104C2E596F34BEC613A2C8B /* EditorView.swift */; };
+		5CCCBABF8062B4FCC4E1B1D4 /* vision500t.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 73BDCC958ABD0CAFA60800E3 /* vision500t.cube.bin */; };
+		7318C8EE1842211972B4D7C4 /* PhotoCaptureProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F0F13A9D10B6A77D93C8B2 /* PhotoCaptureProcessor.swift */; };
+		7E0AA9140C97C64A6A6FDE60 /* CameraController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD423C06B33893D4F5C2D5F /* CameraController.swift */; };
+		BDBD4D6223DFE3250B1ACBAF /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844EBE26338AE1263670179B /* CameraView.swift */; };
+		D33545317AB92D7BB4E183AB /* LICENSE-FILMS.txt in Resources */ = {isa = PBXBuildFile; fileRef = 28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */; };
+		DCB50DBA28C0AFE2F8F30A29 /* RawDeveloper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB879000F0D07DE49B70516 /* RawDeveloper.swift */; };
+		E268DB6E603F1D67AFEFD26C /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */; };
+		E3A5CF576B7F47C893FA57AE /* films.json in Resources */ = {isa = PBXBuildFile; fileRef = 7E9F66346CBC6CBC658A6EBC /* films.json */; };
+		E75D4A1FBCD600857A2C5888 /* LookControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A70AC09EF7C5EA52B7EF1D3 /* LookControlsView.swift */; };
+		ED81D06E0BA9217081434389 /* PhotoLibrarySaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EE94A929DDCFB943558FE59 /* PhotoLibrarySaver.swift */; };
+		FEDCF0CD0F23F80222783369 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55B5220981F38986DC04821 /* AppModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		12334669E60EA1C6B16FB49D /* portra400.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = portra400.cube.bin; sourceTree = "<group>"; };
+		14ADBC02A20B74FC6E350A20 /* FilmLook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmLook.swift; sourceTree = "<group>"; };
+		28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LICENSE-FILMS.txt"; sourceTree = "<group>"; };
+		3F90CA568E0E0B6DCFE88E9F /* Look.ci.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Look.ci.metal; sourceTree = "<group>"; };
+		48408AF81F0D7FFE8E2676E5 /* LookParameters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookParameters.swift; sourceTree = "<group>"; };
+		4A70AC09EF7C5EA52B7EF1D3 /* LookControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LookControlsView.swift; sourceTree = "<group>"; };
+		4F0F56D90AFEB5D5B2585B60 /* Printlight.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Printlight.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		73BDCC958ABD0CAFA60800E3 /* vision500t.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = vision500t.cube.bin; sourceTree = "<group>"; };
+		7E9F66346CBC6CBC658A6EBC /* films.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = films.json; sourceTree = "<group>"; };
+		844EBE26338AE1263670179B /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
+		858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
+		8EE94A929DDCFB943558FE59 /* PhotoLibrarySaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibrarySaver.swift; sourceTree = "<group>"; };
+		B104C2E596F34BEC613A2C8B /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
+		BAB879000F0D07DE49B70516 /* RawDeveloper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawDeveloper.swift; sourceTree = "<group>"; };
+		C8F0F13A9D10B6A77D93C8B2 /* PhotoCaptureProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCaptureProcessor.swift; sourceTree = "<group>"; };
+		D55B5220981F38986DC04821 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		DBFC4C7A1ECF3D337A30BC1D /* PrintlightApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrintlightApp.swift; sourceTree = "<group>"; };
+		DCD66CC01525113EF898918D /* vision250d.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = vision250d.cube.bin; sourceTree = "<group>"; };
+		DDCA0094CEFDA74172B664AC /* FilmLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmLibrary.swift; sourceTree = "<group>"; };
+		EDD423C06B33893D4F5C2D5F /* CameraController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraController.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		13E9F0F04071C478A645C131 /* Films */ = {
+			isa = PBXGroup;
+			children = (
+				7E9F66346CBC6CBC658A6EBC /* films.json */,
+				28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */,
+				12334669E60EA1C6B16FB49D /* portra400.cube.bin */,
+				DCD66CC01525113EF898918D /* vision250d.cube.bin */,
+				73BDCC958ABD0CAFA60800E3 /* vision500t.cube.bin */,
+			);
+			path = Films;
+			sourceTree = "<group>";
+		};
+		4754463859D4D4CC3B388177 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				13E9F0F04071C478A645C131 /* Films */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		5F8FF2C163540928B07D1226 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				D55B5220981F38986DC04821 /* AppModel.swift */,
+				DBFC4C7A1ECF3D337A30BC1D /* PrintlightApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		64A04B756A810CD9AB449FD0 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				4F0F56D90AFEB5D5B2585B60 /* Printlight.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		675B6B901B812F51F1FD160D /* UI */ = {
+			isa = PBXGroup;
+			children = (
+				844EBE26338AE1263670179B /* CameraView.swift */,
+				B104C2E596F34BEC613A2C8B /* EditorView.swift */,
+				4A70AC09EF7C5EA52B7EF1D3 /* LookControlsView.swift */,
+				858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */,
+			);
+			path = UI;
+			sourceTree = "<group>";
+		};
+		8303D22B9F3857E2DB1E8904 = {
+			isa = PBXGroup;
+			children = (
+				A51E43D413C171275F899918 /* Printlight */,
+				64A04B756A810CD9AB449FD0 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A51E43D413C171275F899918 /* Printlight */ = {
+			isa = PBXGroup;
+			children = (
+				5F8FF2C163540928B07D1226 /* App */,
+				FB26278F6A51066230A61077 /* Camera */,
+				DB8F9CD4E0133EB8929A0069 /* Processing */,
+				4754463859D4D4CC3B388177 /* Resources */,
+				675B6B901B812F51F1FD160D /* UI */,
+			);
+			path = Printlight;
+			sourceTree = "<group>";
+		};
+		DB8F9CD4E0133EB8929A0069 /* Processing */ = {
+			isa = PBXGroup;
+			children = (
+				DDCA0094CEFDA74172B664AC /* FilmLibrary.swift */,
+				14ADBC02A20B74FC6E350A20 /* FilmLook.swift */,
+				3F90CA568E0E0B6DCFE88E9F /* Look.ci.metal */,
+				48408AF81F0D7FFE8E2676E5 /* LookParameters.swift */,
+				8EE94A929DDCFB943558FE59 /* PhotoLibrarySaver.swift */,
+				BAB879000F0D07DE49B70516 /* RawDeveloper.swift */,
+			);
+			path = Processing;
+			sourceTree = "<group>";
+		};
+		FB26278F6A51066230A61077 /* Camera */ = {
+			isa = PBXGroup;
+			children = (
+				EDD423C06B33893D4F5C2D5F /* CameraController.swift */,
+				C8F0F13A9D10B6A77D93C8B2 /* PhotoCaptureProcessor.swift */,
+			);
+			path = Camera;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		B3A1CD96AEA390F75834483F /* Printlight */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6FF05B45E67B12DEE1F2B32A /* Build configuration list for PBXNativeTarget "Printlight" */;
+			buildPhases = (
+				54F5D259641F26C25612DE23 /* Sources */,
+				08F9ED09427E73BE7E427940 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Printlight;
+			packageProductDependencies = (
+			);
+			productName = Printlight;
+			productReference = 4F0F56D90AFEB5D5B2585B60 /* Printlight.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E1B2690DAC71A6B616A5C1C1 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					B3A1CD96AEA390F75834483F = {
+						DevelopmentTeam = 56M2NM3C49;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = F3917224618AD6F843D4F14E /* Build configuration list for PBXProject "Printlight" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 8303D22B9F3857E2DB1E8904;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 64A04B756A810CD9AB449FD0 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				B3A1CD96AEA390F75834483F /* Printlight */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		08F9ED09427E73BE7E427940 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D33545317AB92D7BB4E183AB /* LICENSE-FILMS.txt in Resources */,
+				E3A5CF576B7F47C893FA57AE /* films.json in Resources */,
+				586D858288114ECF25C98D0E /* portra400.cube.bin in Resources */,
+				2ABCA2232146BDEAF645C73E /* vision250d.cube.bin in Resources */,
+				5CCCBABF8062B4FCC4E1B1D4 /* vision500t.cube.bin in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		54F5D259641F26C25612DE23 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FEDCF0CD0F23F80222783369 /* AppModel.swift in Sources */,
+				7E0AA9140C97C64A6A6FDE60 /* CameraController.swift in Sources */,
+				BDBD4D6223DFE3250B1ACBAF /* CameraView.swift in Sources */,
+				588AB965AC9BB6D74A0D745B /* EditorView.swift in Sources */,
+				341D889A3C252759B822995F /* FilmLibrary.swift in Sources */,
+				1642CEE4AC65E0EA92CA8176 /* FilmLook.swift in Sources */,
+				15BD9B92781A3EB7C3426A1D /* Look.ci.metal in Sources */,
+				E75D4A1FBCD600857A2C5888 /* LookControlsView.swift in Sources */,
+				4A449236CEF781404DFD9468 /* LookParameters.swift in Sources */,
+				7318C8EE1842211972B4D7C4 /* PhotoCaptureProcessor.swift in Sources */,
+				ED81D06E0BA9217081434389 /* PhotoLibrarySaver.swift in Sources */,
+				E268DB6E603F1D67AFEFD26C /* PreviewView.swift in Sources */,
+				06061C6B2374D554AA13A2D4 /* PrintlightApp.swift in Sources */,
+				DCB50DBA28C0AFE2F8F30A29 /* RawDeveloper.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		2E08EFC6F1FDFC9BFF6C2056 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 56M2NM3C49;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Printlight;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Printlight uses the camera to capture RAW photos.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Printlight saves your developed photos and their RAW negatives to your library.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MTLLINKER_FLAGS = "-fcikernel";
+				MTL_COMPILER_FLAGS = "-fcikernel";
+				PRODUCT_BUNDLE_IDENTIFIER = com.declanjavers.printlight;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		34554E56FE17D86ABE31C44E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 56M2NM3C49;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Printlight;
+				INFOPLIST_KEY_NSCameraUsageDescription = "Printlight uses the camera to capture RAW photos.";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Printlight saves your developed photos and their RAW negatives to your library.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UIStatusBarHidden = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MTLLINKER_FLAGS = "-fcikernel";
+				MTL_COMPILER_FLAGS = "-fcikernel";
+				PRODUCT_BUNDLE_IDENTIFIER = com.declanjavers.printlight;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		53D633DA2FD11A74FD268C82 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		CB6D36399175F3DB9BADD4A5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 0.1;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		6FF05B45E67B12DEE1F2B32A /* Build configuration list for PBXNativeTarget "Printlight" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				34554E56FE17D86ABE31C44E /* Debug */,
+				2E08EFC6F1FDFC9BFF6C2056 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F3917224618AD6F843D4F14E /* Build configuration list for PBXProject "Printlight" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				53D633DA2FD11A74FD268C82 /* Debug */,
+				CB6D36399175F3DB9BADD4A5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = E1B2690DAC71A6B616A5C1C1 /* Project object */;
+}

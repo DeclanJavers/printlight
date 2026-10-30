@@ -1,0 +1,3 @@
+Film data from spektrafilm profiles by Andrea Volpato, CC BY-SA 4.0. These LUTs are derived from that data and are licensed CC BY-SA 4.0.
+https://github.com/andreavolpato/spektrafilm
+https://creativecommons.org/licenses/by-sa/4.0/

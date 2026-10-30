@@ -1,0 +1,8 @@
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+DerivedData/
+__pycache__/
+.DS_Store
+lookdev/samples/*
+!lookdev/samples/SOURCES.md
+*.f32
