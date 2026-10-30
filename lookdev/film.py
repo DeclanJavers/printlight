@@ -241,6 +241,17 @@ class FilmChain:
             offsets -= np.linalg.lstsq(jac, err, rcond=None)[0]
         return offsets
 
+    def render_mono(self, rgb: np.ndarray, weights=(0.30, 0.60, 0.10)) -> np.ndarray:
+        """Black and white: panchromatic luminance printed through this chain's neutral tone curve.
+
+        No black-and-white stock data is available, so tonality comes from the colour chain's
+        grey response; the weights approximate a panchromatic emulsion's spectral response.
+        """
+        y = np.maximum(rgb.reshape(-1, 3) @ np.asarray(weights), 0.0)
+        grey = self.render(np.repeat(y[:, None], 3, axis=1))
+        lum = grey @ np.array([0.2126, 0.7152, 0.0722])
+        return np.repeat(lum[:, None], 3, axis=1).reshape(rgb.shape)
+
     def render(self, rgb: np.ndarray) -> np.ndarray:
         shape = rgb.shape
         neg = self.negative_density(rgb)

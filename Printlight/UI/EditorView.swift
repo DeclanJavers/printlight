@@ -8,14 +8,13 @@ struct EditorView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var params: LookParameters
-    @State private var scene: CIImage?
-    @State private var rendered: UIImage?
+    @StateObject private var renderer = EditorRenderer()
     @State private var showingControls = true
     @State private var madeDefault = 0
 
-    init(shot: Shot, initialParams: LookParameters) {
+    init(shot: Shot) {
         self.shot = shot
-        _params = State(initialValue: initialParams)
+        _params = State(initialValue: shot.params)
     }
 
     var body: some View {
@@ -53,21 +52,8 @@ struct EditorView: View {
         .foregroundStyle(.white)
         .environment(\.colorScheme, .dark)
         .sensoryFeedback(.success, trigger: madeDefault)
-        .task {
-            // Decode once at reduced size; every slider move only re-runs the look.
-            let dng = shot.dng
-            scene = await Task.detached(priority: .userInitiated) {
-                RawDeveloper.sceneLinear(from: dng, scale: 0.3)
-            }.value
-        }
-        .task(id: RenderKey(params: params, hasScene: scene != nil)) {
-            guard let scene else { return }
-            let params = params
-            let image = await Task.detached(priority: .userInitiated) {
-                RawDeveloper.uiImage(from: FilmLook.shared.render(sceneLinear: scene, params: params))
-            }.value
-            if !Task.isCancelled, let image { rendered = image }
-        }
+        .task { await renderer.load(shot.dng, params: params) }
+        .onChange(of: params) { _, new in renderer.request(new) }
     }
 
     // MARK: - Pieces
@@ -113,7 +99,7 @@ struct EditorView: View {
 
             Button {
                 let params = params
-                Task { await model.saveVariant(of: shot, params: params) }
+                Task { await model.saveEdit(of: shot, params: params) }
             } label: {
                 ZStack {
                     Text("SAVE")
@@ -142,12 +128,12 @@ struct EditorView: View {
 
     private var image: some View {
         ZStack(alignment: .topTrailing) {
-            Image(uiImage: rendered ?? shot.thumbnail)
+            Image(uiImage: renderer.image ?? shot.thumbnail)
                 .resizable()
                 .scaledToFit()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            if scene == nil {
+            if !renderer.isLoaded {
                 HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.mini)
@@ -163,7 +149,7 @@ struct EditorView: View {
                 .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: scene == nil)
+        .animation(.easeOut(duration: 0.2), value: renderer.isLoaded)
         .contentShape(Rectangle())
         .onTapGesture {
             withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) { showingControls.toggle() }
@@ -193,8 +179,51 @@ struct EditorView: View {
             }
     }
 
-    private struct RenderKey: Equatable {
-        let params: LookParameters
-        let hasScene: Bool
+}
+
+/// Renders the editor preview. Decodes the negative once at screen size, then keeps at most one
+/// look render in flight: slider moves only replace the pending settings, and each finished
+/// render immediately starts on the newest ones. (Unbounded per-tick renders used to pile up on
+/// the GPU, freezing the preview and starving the full-resolution save.)
+@MainActor
+final class EditorRenderer: ObservableObject {
+    @Published private(set) var image: UIImage?
+    @Published private(set) var isLoaded = false
+
+    private var scene: CIImage?
+    private var pending: LookParameters?
+    private var rendering = false
+
+    func load(_ dng: Data, params: LookParameters) async {
+        // 0.2 of a 48MP frame is about 1600px on the long side: screen size, and small enough
+        // for the decode to double as the exposure-match reference.
+        scene = await Task.detached(priority: .userInitiated) {
+            RawDeveloper.sceneLinear(from: dng, scale: 0.2)
+        }.value
+        isLoaded = scene != nil
+        request(params)
+    }
+
+    func request(_ params: LookParameters) {
+        pending = params
+        pump()
+    }
+
+    private func pump() {
+        guard !rendering, let scene, let params = pending else { return }
+        pending = nil
+        rendering = true
+        Task.detached(priority: .userInitiated) {
+            let clock = ContinuousClock()
+            let start = clock.now
+            let image = RawDeveloper.uiImage(from: FilmLook.shared.render(sceneLinear: scene, params: params))
+            let took = clock.now - start
+            await MainActor.run {
+                print("PRINTLIGHT EDITOR render \(took.formatted(.units(allowed: [.milliseconds])))")
+                if let image { self.image = image }
+                self.rendering = false
+                self.pump()
+            }
+        }
     }
 }

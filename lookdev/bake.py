@@ -40,6 +40,8 @@ FILMS = [
      "negative": "kodak_gold_200", "print": "kodak_supra_endura"},
     {"id": "pro400h", "name": "Fuji Pro 400H", "detail": "Stills negative · Crystal Archive paper",
      "negative": "fujifilm_pro_400h", "print": "fujifilm_crystal_archive_typeii"},
+    {"id": "mono2383", "name": "Mono", "detail": "Panchromatic black and white · 2383 tone",
+     "negative": "kodak_vision3_250d", "print": "kodak_2383", "mono": True},
 ]
 
 
@@ -78,10 +80,11 @@ def main(size: int) -> None:
     grey_stops = np.linspace(-8, 8, 65)
     for film in FILMS:
         chain = FilmChain(film["negative"], film["print"])
-        lut = chain.render(lattice(size))
+        render = chain.render_mono if film.get("mono") else chain.render
+        lut = render(lattice(size))
         rgba = np.concatenate([lut, np.ones((len(lut), 1))], axis=1).astype(np.float32)
         (OUT / f"{film['id']}.cube.bin").write_bytes(rgba.tobytes())
-        grey = chain.render(np.repeat((MID_GREY * np.exp2(grey_stops))[:, None], 3, axis=1))
+        grey = render(np.repeat((MID_GREY * np.exp2(grey_stops))[:, None], 3, axis=1))
         luminance = grey @ np.array([0.2126, 0.7152, 0.0722])
         manifest["films"].append({
             **{k: film[k] for k in ("id", "name", "detail")},

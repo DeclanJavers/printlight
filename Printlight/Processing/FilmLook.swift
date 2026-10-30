@@ -1,4 +1,5 @@
 import CoreImage
+import simd
 
 /// Builds the Core Image graph for the look. Used identically by the live preview
 /// and the full-resolution develop, so what you dial in is what you get.
@@ -12,6 +13,9 @@ final class FilmLook {
     private let halationSource: CIColorKernel
     private let unrender: CIColorKernel
     private let finish: CIColorKernel
+    private let logLuma: CIColorKernel
+    /// Optional so a kernel-loading problem only costs the zebras, not the camera.
+    private let zebra: CIKernel?
 
     private init() {
         guard let url = Bundle.main.url(forResource: "default", withExtension: "metallib"),
@@ -29,6 +33,8 @@ final class FilmLook {
         halationSource = kernel("printlightHalationSource")
         unrender = kernel("printlightUnrender")
         finish = kernel("printlightFinish")
+        logLuma = kernel("printlightLogLuma")
+        zebra = try? CIKernel(functionName: "printlightZebra", fromMetalLibraryData: data)
     }
 
     /// Scene-linear in, display-linear out (Core Image working space).
@@ -46,15 +52,34 @@ final class FilmLook {
             .applyingGaussianBlur(sigma: Double(width) * 0.006)
             .cropped(to: extent)
 
+        // Clarity reference: log luminance blurred over ~0.1% of the frame width, a scale that
+        // restores lens-level micro-contrast without touching broader tonality.
+        let blurredLogLuma = params.clarity > 0
+            ? (logLuma.apply(extent: extent, arguments: [image]) ?? image)
+                .clampedToExtent()
+                .applyingGaussianBlur(sigma: max(Double(width) * 0.001, 0.6))
+                .cropped(to: extent)
+            : CIImage.black.cropped(to: extent)
+
+        let wb = WhiteBalance.matrix(warmth: params.warmth, tint: params.tint)
+        func row(_ i: Int) -> CIVector { CIVector(x: wb[0, i], y: wb[1, i], z: wb[2, i]) }
+
         let library = FilmLibrary.shared
         let film = library.film(id: params.film)
         let shaping = CIVector(x: params.exposure, y: params.halation, z: library.minStops, w: library.maxStops)
-        guard let shaped = shaper.apply(extent: extent, arguments: [image, halo, shaping]) else { return image }
-        let printed = shaped.applyingFilter("CIColorCube", parameters: [
+        guard let shaped = shaper.apply(
+            extent: extent,
+            arguments: [image, halo, blurredLogLuma, shaping, row(0), row(1), row(2), Float(params.clarity)]
+        ) else { return image }
+        var printed = shaped.applyingFilter("CIColorCube", parameters: [
             "inputCubeDimension": library.cubeSize,
             "inputCubeData": library.cube(for: film),
             "inputExtrapolate": false,
         ])
+
+        if let name = params.customLUT, let cube = CustomLUTLibrary.shared.cube(named: name) {
+            printed = applyCustomLUT(cube, to: printed, strength: params.customLUTStrength)
+        }
 
         let noise = params.grain > 0
             ? grainNoise(for: extent, seed: grainSeed)
@@ -63,6 +88,34 @@ final class FilmLook {
             extent: extent,
             arguments: [printed, noise, Float(params.grain), Float(params.blackLift)]
         ) ?? printed
+    }
+
+    /// A creative `.cube` grade on the film's output, in the sRGB encoding such LUTs expect.
+    private func applyCustomLUT(_ cube: CustomLUTLibrary.Cube, to image: CIImage, strength: Double) -> CIImage {
+        let graded = image
+            .applyingFilter("CIColorClamp")
+            .applyingFilter("CILinearToSRGBToneCurve")
+            .applyingFilter("CIColorCube", parameters: [
+                "inputCubeDimension": cube.size,
+                "inputCubeData": cube.data,
+                "inputExtrapolate": false,
+            ])
+            .applyingFilter("CISRGBToneCurveToLinear")
+        guard strength < 1 else { return graded }
+        return graded.applyingFilter("CIDissolveTransition", parameters: [
+            kCIInputTargetImageKey: image,
+            kCIInputTimeKey: 1 - max(strength, 0),
+        ])
+    }
+
+    /// Stripes over areas where `source` (the camera's preview frame) is clipping.
+    func zebras(on shown: CIImage, source: CIImage, phase: Float) -> CIImage {
+        guard let zebra else { return shown }
+        return zebra.apply(
+            extent: shown.extent,
+            roiCallback: { _, rect in rect },
+            arguments: [shown, source, phase]
+        ) ?? shown
     }
 
     /// Live preview: video frames are already rendered by Apple, so approximately undo that

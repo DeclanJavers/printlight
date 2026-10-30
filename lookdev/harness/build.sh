@@ -20,5 +20,7 @@ xcrun -sdk macosx swiftc -O -swift-version 5 -target arm64-apple-macos14.0 \
     "$ROOT/Printlight/Processing/LookParameters.swift" \
     "$ROOT/Printlight/Processing/FilmLook.swift" \
     "$ROOT/Printlight/Processing/FilmLibrary.swift" \
+    "$ROOT/Printlight/Processing/WhiteBalance.swift" \
+    "$ROOT/Printlight/Processing/CustomLUTLibrary.swift" \
     -o "$OUT/dump"
 echo "built $OUT/dump"

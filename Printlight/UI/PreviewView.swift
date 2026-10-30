@@ -17,12 +17,18 @@ final class PreviewRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     private var frameCount: UInt64 = 0
     private var _params = LookParameters.standard
     private var _lookEnabled = true
+    private var _zebras = true
     /// Size of the last frame after rotation, used to map taps to image coordinates.
     private(set) var frameSize: CGSize = .zero
 
     var params: LookParameters {
         get { lock.withLock { _params } }
         set { lock.withLock { _params = newValue } }
+    }
+
+    var zebras: Bool {
+        get { lock.withLock { _zebras } }
+        set { lock.withLock { _zebras = newValue } }
     }
 
     var lookEnabled: Bool {
@@ -52,7 +58,9 @@ final class PreviewRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     func draw(in view: MTKView) {
-        let (frame, count, params, enabled) = lock.withLock { (latestFrame, frameCount, _params, _lookEnabled) }
+        let (frame, count, params, enabled, zebras) = lock.withLock {
+            (latestFrame, frameCount, _params, _lookEnabled, _zebras)
+        }
         guard let frame,
               let drawable = view.currentDrawable,
               let commandBuffer = commandQueue.makeCommandBuffer() else { return }
@@ -70,11 +78,16 @@ final class PreviewRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
             .transformed(by: CGAffineTransform(translationX: -dx, y: -dy))
             .cropped(to: CGRect(origin: .zero, size: target))
 
+        let cameraFrame = image
         if enabled {
             image = FilmLook.shared.renderPreview(displayReferred: image, params: params, frame: count)
         }
 
         lock.withLock { lastDrawn = image }
+        if zebras {
+            // Stripes crawl slowly so they read as an overlay, not part of the picture.
+            image = FilmLook.shared.zebras(on: image, source: cameraFrame, phase: Float(count % 24) / 2)
+        }
 
         let destination = CIRenderDestination(
             width: Int(target.width),

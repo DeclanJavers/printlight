@@ -19,17 +19,34 @@ inline float curvePivot(float contrast, float midOut, float peak) {
 
 extern "C" { namespace coreimage {
 
+/// Log2 luminance of scene light, blurred by the caller to give the clarity reference.
+float4 printlightLogLuma(sample_t scene) {
+    float lum = dot(scene.rgb, float3(0.2126f, 0.7152f, 0.0722f));
+    float l = log2(max(lum, MID_GREY * exp2(LOG_FLOOR)));
+    return float4(l, l, l, 1.0f);
+}
+
 /// Scene-linear -> LUT input: per-channel stops around mid grey, mapped from [minStops, maxStops]
-/// to [0, 1]. Exposure and halation are applied here, in scene light, before the film LUT.
+/// to [0, 1]. Everything here works on scene light, before the film LUT:
+///   - clarity: local contrast against a small blur of log luminance. The detail signal is
+///     soft-limited to about half a stop, which is what keeps edges from growing halos;
+///   - white balance: a chromatic adaptation matrix (rows wb0..wb2, see WhiteBalance.swift);
+///   - exposure and halation.
 /// Mirrors the shaper in lookdev/bake.py.
 /// shaping = (exposure, halation, minStops, maxStops)
-float4 printlightShaper(sample_t scene, sample_t halo, float4 shaping) {
-    float3 x = scene.rgb * exp2(shaping.x) + halo.rgb * shaping.y;
+float4 printlightShaper(sample_t scene, sample_t halo, sample_t blurredLogLuma, float4 shaping,
+                        float3 wb0, float3 wb1, float3 wb2, float clarity) {
+    float lum = dot(scene.rgb, float3(0.2126f, 0.7152f, 0.0722f));
+    float detail = log2(max(lum, MID_GREY * exp2(LOG_FLOOR))) - blurredLogLuma.r;
+    detail = detail / (1.0f + abs(detail) * 2.0f);
+    float3 x = scene.rgb * exp2(clarity * detail);
+    x = float3(dot(wb0, x), dot(wb1, x), dot(wb2, x));
+    x = x * exp2(shaping.x) + halo.rgb * shaping.y;
     float3 stops = log2(max(x, float3(MID_GREY * exp2(LOG_FLOOR))) / MID_GREY);
     return float4(clamp((stops - shaping.z) / (shaping.w - shaping.z), 0.0f, 1.0f), scene.a);
 }
 
-/// Energy above the halation threshold, to be blurred and fed back into printlightLook.
+/// Energy above the halation threshold, to be blurred and fed back in by printlightShaper.
 float4 printlightHalationSource(sample_t scene, float exposure, float thresholdStops) {
     float3 x = scene.rgb * exp2(exposure);
     float lum = dot(x, float3(0.2126f, 0.7152f, 0.0722f));
@@ -59,6 +76,20 @@ float4 printlightFinish(sample_t image, sample_t noise, float amount, float lift
     float3 g = n.r * 0.8f + n * 0.2f;
     v += g * amount * env;
     return float4(sign(v) * v * v, image.a);
+}
+
+/// Viewfinder zebras: diagonal stripes where the camera's own preview frame is at or near
+/// clipping in any channel. The frame is Apple-processed SDR video, so this is a guide to blown
+/// highlights rather than a reading of the raw sensor.
+float4 printlightZebra(sampler shown, sampler source, float phase, destination dest) {
+    float4 c = shown.sample(shown.coord());
+    float4 s = source.sample(source.coord());
+    if (max(s.r, max(s.g, s.b)) < 0.98f) {
+        return c;
+    }
+    float2 p = dest.coord();
+    float stripe = fmod(p.x + p.y + phase, 12.0f) < 6.0f ? 1.0f : 0.0f;
+    return float4(mix(c.rgb, float3(stripe), 0.55f), c.a);
 }
 
 }}

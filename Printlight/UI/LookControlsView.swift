@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - Design system
 
@@ -139,7 +140,12 @@ private struct LookSection: Identifiable {
                 LookParameterSpec(title: "Exposure", keyPath: \.exposure, range: -3...3, format: "%+.2f"),
                 LookParameterSpec(title: "Black lift", keyPath: \.blackLift, range: 0...0.04, format: "%.3f"),
             ]),
+            LookSection(title: "COLOUR", rows: [
+                LookParameterSpec(title: "Warmth", keyPath: \.warmth, range: -1...1, format: "%+.2f"),
+                LookParameterSpec(title: "Tint", keyPath: \.tint, range: -1...1, format: "%+.2f"),
+            ]),
             LookSection(title: "TEXTURE", rows: [
+                LookParameterSpec(title: "Clarity", keyPath: \.clarity, range: 0...1, format: "%.2f"),
                 LookParameterSpec(title: "Halation", keyPath: \.halation, range: 0...0.5, format: "%.2f"),
                 LookParameterSpec(title: "Halation threshold", keyPath: \.halationThreshold, range: -1...3, format: "%+.1f"),
                 LookParameterSpec(title: "Grain", keyPath: \.grain, range: 0...0.04, format: "%.3f"),
@@ -152,11 +158,15 @@ private struct LookSection: Identifiable {
 struct LookControlsView: View {
     @Binding var params: LookParameters
 
+    @State private var importingLUT = false
+    @State private var lutError: String?
+
     private let sections = LookSection.all
 
     private var adjustedCount: Int {
         sections.flatMap(\.rows).filter { !$0.isDefault(params[keyPath: $0.keyPath]) }.count
             + (params.film == LookParameters.standard.film ? 0 : 1)
+            + (params.customLUT == nil ? 0 : 1)
     }
 
     var body: some View {
@@ -169,6 +179,7 @@ struct LookControlsView: View {
                     ForEach(sections) { section in
                         sectionView(section)
                     }
+                    lutSection
                     Text("Film data: spektrafilm profiles by Andrea Volpato, CC BY-SA 4.0.")
                         .font(.system(size: 10))
                         .foregroundStyle(Color.white.opacity(0.3))
@@ -232,6 +243,71 @@ struct LookControlsView: View {
             }
         }
         .sensoryFeedback(.selection, trigger: params.film)
+    }
+
+    /// A creative `.cube` grade on top of the film, imported from Files.
+    private var lutSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            sectionHeader("CUSTOM LUT")
+            HStack(spacing: 12) {
+                if let name = params.customLUT {
+                    Text(name)
+                        .font(.system(size: 14))
+                        .foregroundStyle(Palette.accent)
+                        .lineLimit(1)
+                    Spacer()
+                    Button {
+                        withAnimation(.snappy) { params.customLUT = nil }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .semibold))
+                            .frame(width: 30, height: 30)
+                            .overlay(Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove custom LUT")
+                } else {
+                    Text("Rec.709 .cube looks, applied after the film")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.white.opacity(0.45))
+                    Spacer()
+                }
+                Button {
+                    importingLUT = true
+                } label: {
+                    Text(params.customLUT == nil ? "IMPORT" : "CHANGE")
+                        .readout(11, weight: .semibold)
+                        .padding(.horizontal, 12)
+                        .frame(height: 30)
+                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            if let lutError {
+                Text(lutError)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Palette.accent)
+            }
+            if params.customLUT != nil {
+                ParameterRow(
+                    spec: LookParameterSpec(title: "Strength", keyPath: \.customLUTStrength, range: 0...1, format: "%.2f"),
+                    value: $params.customLUTStrength
+                )
+            }
+        }
+        .fileImporter(
+            isPresented: $importingLUT,
+            allowedContentTypes: [UTType(filenameExtension: "cube") ?? .data, .data]
+        ) { result in
+            do {
+                let name = try CustomLUTLibrary.shared.importLUT(from: result.get())
+                lutError = nil
+                withAnimation(.snappy) { params.customLUT = name }
+            } catch {
+                lutError = error.localizedDescription
+            }
+        }
     }
 
     private func sectionHeader(_ title: String) -> some View {

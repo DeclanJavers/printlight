@@ -26,12 +26,34 @@ enum RawDeveloper {
 
     /// Decode with every bit of Apple's rendering turned off: linear response,
     /// no local tone mapping, no sharpening, no gamut compression.
-    /// The result is normalised by `exposureMatch` so mid-tones sit where the look expects them.
-    /// `scale` < 1 gives a fast, smaller decode for interactive editing.
+    /// The result is normalised by the exposure match so mid-tones sit where the look expects them.
+    /// `scale` < 1 gives a fast, smaller decode for thumbnails and interactive editing.
     static func sceneLinear(from dng: Data, scale: Float = 1) -> CIImage? {
-        guard let image = decode(dng, appleRendering: false, scale: scale) else { return nil }
-        // A small decode can double as the exposure-match reference, saving a full RAW decode.
-        let gain = CGFloat(exp2(exposureMatch(for: dng, neutral: scale <= 0.2 ? image : nil)))
+        let image: CIImage?
+        let stops: Double
+        if scale <= 0.2 {
+            // Small decode: decode it once into memory while Apple's reference decode runs on
+            // another core. The pixels then serve the exposure match and every later render, so
+            // the RAW is never decoded twice. (Core Image RAW images are lazy and caching is off,
+            // so rendering one twice decodes it twice.)
+            var neutral: CIImage?
+            var appleMedian: Double?
+            let cached = cachedExposure(for: dng)
+            DispatchQueue.concurrentPerform(iterations: 2) { i in
+                if i == 0 {
+                    neutral = decode(dng, appleRendering: false, scale: scale).flatMap(materialize)
+                } else if cached == nil {
+                    appleMedian = decode(dng, appleRendering: true, scale: 0.08).flatMap(medianLuminance)
+                }
+            }
+            image = neutral
+            stops = cached ?? exposureMatch(for: dng, sceneMedian: neutral.flatMap(medianLuminance), appleMedian: appleMedian)
+        } else {
+            image = decode(dng, appleRendering: false, scale: scale)
+            stops = exposureMatch(for: dng)
+        }
+        guard let image else { return nil }
+        let gain = CGFloat(exp2(stops))
         return image.applyingFilter("CIColorMatrix", parameters: [
             "inputRVector": CIVector(x: gain, y: 0, z: 0, w: 0),
             "inputGVector": CIVector(x: 0, y: gain, z: 0, w: 0),
@@ -44,16 +66,19 @@ enum RawDeveloper {
     /// brightens it with its boost curve and local tone map; without this, Printlight
     /// renders everything about a stop dark. Only one number per shot is borrowed:
     /// none of Apple's local contrast ends up in the image.
-    /// Every ProRAW decode costs about the same whatever its output size, so pass an existing small
-    /// neutral decode as `neutral` when there is one.
-    static func exposureMatch(for dng: Data, neutral existing: CIImage? = nil) -> Double {
-        let key = dng.hashValue
-        if let cached = exposureCache.withLock({ $0[key] }) { return cached }
+    static func exposureMatch(for dng: Data) -> Double {
+        if let cached = cachedExposure(for: dng) { return cached }
+        var sceneMedian: Double?
+        var appleMedian: Double?
+        DispatchQueue.concurrentPerform(iterations: 2) { i in
+            let image = decode(dng, appleRendering: i == 1, scale: 0.08)
+            if i == 0 { sceneMedian = image.flatMap(medianLuminance) } else { appleMedian = image.flatMap(medianLuminance) }
+        }
+        return exposureMatch(for: dng, sceneMedian: sceneMedian, appleMedian: appleMedian)
+    }
 
-        guard let neutral = existing ?? decode(dng, appleRendering: false, scale: 0.08),
-              let apple = decode(dng, appleRendering: true, scale: 0.08),
-              let sceneMedian = medianLuminance(of: neutral), sceneMedian > 1e-5,
-              let appleMedian = medianLuminance(of: apple) else { return 0 }
+    private static func exposureMatch(for dng: Data, sceneMedian: Double?, appleMedian: Double?) -> Double {
+        guard let sceneMedian, sceneMedian > 1e-5, let appleMedian else { return 0 }
         // All baked films print mid grey to the same value, so the default film's grey curve serves
         // for each. The curve is before black lift, so take the default lift back out of the target.
         let lift = LookParameters.standard.blackLift
@@ -63,12 +88,38 @@ enum RawDeveloper {
 
         exposureCache.withLock { cache in
             if cache.count > 16 { cache.removeAll() }
-            cache[key] = stops
+            cache[cacheKey(for: dng)] = stops
         }
         return stops
     }
 
+    private static func cachedExposure(for dng: Data) -> Double? {
+        exposureCache.withLock { $0[cacheKey(for: dng)] }
+    }
+
+    /// Identifies a shot by its size and the end of its image data. Headers of different DNGs from
+    /// the same camera are nearly identical, so hashing only the start would mix shots up.
+    private static func cacheKey(for dng: Data) -> Int {
+        var hasher = Hasher()
+        hasher.combine(dng.count)
+        hasher.combine(dng.suffix(64 * 1024))
+        return hasher.finalize()
+    }
+
     private static let exposureCache = OSAllocatedUnfairLock(initialState: [Int: Double]())
+
+    /// Renders a (small) image into memory once, so later uses don't re-run its filter graph.
+    private static func materialize(_ image: CIImage) -> CIImage? {
+        let width = Int(image.extent.width), height = Int(image.extent.height)
+        guard width > 0, height > 0 else { return nil }
+        let rowBytes = width * 8
+        var data = Data(count: rowBytes * height)
+        data.withUnsafeMutableBytes { buffer in
+            context.render(image, toBitmap: buffer.baseAddress!, rowBytes: rowBytes, bounds: image.extent, format: .RGBAh, colorSpace: nil)
+        }
+        // No colour space: the values stay in the linear working space, exactly as decoded.
+        return CIImage(bitmapData: data, bytesPerRow: rowBytes, size: image.extent.size, format: .RGBAh, colorSpace: nil)
+    }
 
     private static func decode(_ dng: Data, appleRendering: Bool, scale: Float) -> CIImage? {
         guard let raw = CIRAWFilter(imageData: dng, identifierHint: "com.adobe.raw-image") else { return nil }

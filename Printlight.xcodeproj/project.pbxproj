@@ -20,20 +20,26 @@
 		7318C8EE1842211972B4D7C4 /* PhotoCaptureProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F0F13A9D10B6A77D93C8B2 /* PhotoCaptureProcessor.swift */; };
 		7E0AA9140C97C64A6A6FDE60 /* CameraController.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDD423C06B33893D4F5C2D5F /* CameraController.swift */; };
 		80201A75266F55AAAED7AE6A /* pro400h.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 503859AFE60137E7A6A82A19 /* pro400h.cube.bin */; };
+		833099F4A0E05CB25DA0EDBE /* WhiteBalance.swift in Sources */ = {isa = PBXBuildFile; fileRef = D688A7E0A646D35C76A7A5E2 /* WhiteBalance.swift */; };
+		85FBF4AE5D77E8F54A0E21D2 /* CustomLUTLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97D9C15DF779A4C7F01F4398 /* CustomLUTLibrary.swift */; };
 		BDBD4D6223DFE3250B1ACBAF /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844EBE26338AE1263670179B /* CameraView.swift */; };
 		D33545317AB92D7BB4E183AB /* LICENSE-FILMS.txt in Resources */ = {isa = PBXBuildFile; fileRef = 28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */; };
+		D9EEC8021194B6D7A700E9CE /* mono2383.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = E1629FBCFDCB56D8742DCEC5 /* mono2383.cube.bin */; };
 		DCB50DBA28C0AFE2F8F30A29 /* RawDeveloper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB879000F0D07DE49B70516 /* RawDeveloper.swift */; };
 		E268DB6E603F1D67AFEFD26C /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */; };
 		E308D8F3E8058DE0542971C9 /* gold200.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 46C689AAE71EF66115F3DEB9 /* gold200.cube.bin */; };
 		E3A5CF576B7F47C893FA57AE /* films.json in Resources */ = {isa = PBXBuildFile; fileRef = 7E9F66346CBC6CBC658A6EBC /* films.json */; };
+		E4B061E6BC78B9212D37F7F0 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 135F064C2406CD107FBAD1AB /* LibraryView.swift */; };
 		E75D4A1FBCD600857A2C5888 /* LookControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A70AC09EF7C5EA52B7EF1D3 /* LookControlsView.swift */; };
 		EBA0D678C4F68CD272EF37B3 /* ektar100.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 92BE44B715D58262D595E287 /* ektar100.cube.bin */; };
 		ED81D06E0BA9217081434389 /* PhotoLibrarySaver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8EE94A929DDCFB943558FE59 /* PhotoLibrarySaver.swift */; };
+		FBC49C458EAA75CC5F31CC62 /* ShotLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9E18C488BF0E5CFED5D0FD4 /* ShotLibrary.swift */; };
 		FEDCF0CD0F23F80222783369 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55B5220981F38986DC04821 /* AppModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		12334669E60EA1C6B16FB49D /* portra400.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = portra400.cube.bin; sourceTree = "<group>"; };
+		135F064C2406CD107FBAD1AB /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		14ADBC02A20B74FC6E350A20 /* FilmLook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmLook.swift; sourceTree = "<group>"; };
 		28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LICENSE-FILMS.txt"; sourceTree = "<group>"; };
 		3F90CA568E0E0B6DCFE88E9F /* Look.ci.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Look.ci.metal; sourceTree = "<group>"; };
@@ -49,13 +55,17 @@
 		858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewView.swift; sourceTree = "<group>"; };
 		8EE94A929DDCFB943558FE59 /* PhotoLibrarySaver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoLibrarySaver.swift; sourceTree = "<group>"; };
 		92BE44B715D58262D595E287 /* ektar100.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = ektar100.cube.bin; sourceTree = "<group>"; };
+		97D9C15DF779A4C7F01F4398 /* CustomLUTLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CustomLUTLibrary.swift; sourceTree = "<group>"; };
 		B104C2E596F34BEC613A2C8B /* EditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditorView.swift; sourceTree = "<group>"; };
 		BAB879000F0D07DE49B70516 /* RawDeveloper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RawDeveloper.swift; sourceTree = "<group>"; };
 		C8F0F13A9D10B6A77D93C8B2 /* PhotoCaptureProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoCaptureProcessor.swift; sourceTree = "<group>"; };
+		C9E18C488BF0E5CFED5D0FD4 /* ShotLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotLibrary.swift; sourceTree = "<group>"; };
 		D55B5220981F38986DC04821 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		D688A7E0A646D35C76A7A5E2 /* WhiteBalance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WhiteBalance.swift; sourceTree = "<group>"; };
 		DBFC4C7A1ECF3D337A30BC1D /* PrintlightApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrintlightApp.swift; sourceTree = "<group>"; };
 		DCD66CC01525113EF898918D /* vision250d.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = vision250d.cube.bin; sourceTree = "<group>"; };
 		DDCA0094CEFDA74172B664AC /* FilmLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmLibrary.swift; sourceTree = "<group>"; };
+		E1629FBCFDCB56D8742DCEC5 /* mono2383.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = mono2383.cube.bin; sourceTree = "<group>"; };
 		EDD423C06B33893D4F5C2D5F /* CameraController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -67,6 +77,7 @@
 				7E9F66346CBC6CBC658A6EBC /* films.json */,
 				46C689AAE71EF66115F3DEB9 /* gold200.cube.bin */,
 				28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */,
+				E1629FBCFDCB56D8742DCEC5 /* mono2383.cube.bin */,
 				12334669E60EA1C6B16FB49D /* portra400.cube.bin */,
 				503859AFE60137E7A6A82A19 /* pro400h.cube.bin */,
 				844AB2C9F2EC83C2E2E01C48 /* vision50d.cube.bin */,
@@ -106,6 +117,7 @@
 			children = (
 				844EBE26338AE1263670179B /* CameraView.swift */,
 				B104C2E596F34BEC613A2C8B /* EditorView.swift */,
+				135F064C2406CD107FBAD1AB /* LibraryView.swift */,
 				4A70AC09EF7C5EA52B7EF1D3 /* LookControlsView.swift */,
 				858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */,
 			);
@@ -125,6 +137,7 @@
 			children = (
 				5F8FF2C163540928B07D1226 /* App */,
 				FB26278F6A51066230A61077 /* Camera */,
+				B8233BB08CB476A272678F04 /* Library */,
 				DB8F9CD4E0133EB8929A0069 /* Processing */,
 				4754463859D4D4CC3B388177 /* Resources */,
 				675B6B901B812F51F1FD160D /* UI */,
@@ -132,15 +145,25 @@
 			path = Printlight;
 			sourceTree = "<group>";
 		};
+		B8233BB08CB476A272678F04 /* Library */ = {
+			isa = PBXGroup;
+			children = (
+				C9E18C488BF0E5CFED5D0FD4 /* ShotLibrary.swift */,
+			);
+			path = Library;
+			sourceTree = "<group>";
+		};
 		DB8F9CD4E0133EB8929A0069 /* Processing */ = {
 			isa = PBXGroup;
 			children = (
+				97D9C15DF779A4C7F01F4398 /* CustomLUTLibrary.swift */,
 				DDCA0094CEFDA74172B664AC /* FilmLibrary.swift */,
 				14ADBC02A20B74FC6E350A20 /* FilmLook.swift */,
 				3F90CA568E0E0B6DCFE88E9F /* Look.ci.metal */,
 				48408AF81F0D7FFE8E2676E5 /* LookParameters.swift */,
 				8EE94A929DDCFB943558FE59 /* PhotoLibrarySaver.swift */,
 				BAB879000F0D07DE49B70516 /* RawDeveloper.swift */,
+				D688A7E0A646D35C76A7A5E2 /* WhiteBalance.swift */,
 			);
 			path = Processing;
 			sourceTree = "<group>";
@@ -218,6 +241,7 @@
 				EBA0D678C4F68CD272EF37B3 /* ektar100.cube.bin in Resources */,
 				E3A5CF576B7F47C893FA57AE /* films.json in Resources */,
 				E308D8F3E8058DE0542971C9 /* gold200.cube.bin in Resources */,
+				D9EEC8021194B6D7A700E9CE /* mono2383.cube.bin in Resources */,
 				586D858288114ECF25C98D0E /* portra400.cube.bin in Resources */,
 				80201A75266F55AAAED7AE6A /* pro400h.cube.bin in Resources */,
 				2ABCA2232146BDEAF645C73E /* vision250d.cube.bin in Resources */,
@@ -236,9 +260,11 @@
 				FEDCF0CD0F23F80222783369 /* AppModel.swift in Sources */,
 				7E0AA9140C97C64A6A6FDE60 /* CameraController.swift in Sources */,
 				BDBD4D6223DFE3250B1ACBAF /* CameraView.swift in Sources */,
+				85FBF4AE5D77E8F54A0E21D2 /* CustomLUTLibrary.swift in Sources */,
 				588AB965AC9BB6D74A0D745B /* EditorView.swift in Sources */,
 				341D889A3C252759B822995F /* FilmLibrary.swift in Sources */,
 				1642CEE4AC65E0EA92CA8176 /* FilmLook.swift in Sources */,
+				E4B061E6BC78B9212D37F7F0 /* LibraryView.swift in Sources */,
 				15BD9B92781A3EB7C3426A1D /* Look.ci.metal in Sources */,
 				E75D4A1FBCD600857A2C5888 /* LookControlsView.swift in Sources */,
 				4A449236CEF781404DFD9468 /* LookParameters.swift in Sources */,
@@ -247,6 +273,8 @@
 				E268DB6E603F1D67AFEFD26C /* PreviewView.swift in Sources */,
 				06061C6B2374D554AA13A2D4 /* PrintlightApp.swift in Sources */,
 				DCB50DBA28C0AFE2F8F30A29 /* RawDeveloper.swift in Sources */,
+				FBC49C458EAA75CC5F31CC62 /* ShotLibrary.swift in Sources */,
+				833099F4A0E05CB25DA0EDBE /* WhiteBalance.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -264,6 +292,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Printlight;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Printlight uses the camera to capture RAW photos.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Printlight saves your developed photos and their RAW negatives to your library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Printlight reads back the photos it took so you can re-edit them. With Limited access it only sees its own photos.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
@@ -291,6 +320,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Printlight;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Printlight uses the camera to capture RAW photos.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Printlight saves your developed photos and their RAW negatives to your library.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Printlight reads back the photos it took so you can re-edit them. With Limited access it only sees its own photos.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;

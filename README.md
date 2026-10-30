@@ -11,22 +11,40 @@ the image with its own film-print look.
 2. **Neutral decode** (`Processing/RawDeveloper.swift`). `CIRAWFilter` runs with boost, local tone
    mapping, sharpening and gamut mapping all off, which gives scene-linear RGB.
 3. **Look** (`Processing/FilmLook.swift`, kernels in `Look.ci.metal`). The steps run in this order:
+   - Clarity: local contrast against a small blur of log luminance, soft-limited to about half a
+     stop so edges don't grow halos. Replaces Apple's sharpening, which the decode turns off.
+   - White balance: Warmth (mireds along the black-body locus) and Tint, as a Bradford
+     adaptation of scene light (`WhiteBalance.swift`), so the film responds to the corrected light.
    - Halation: energy above a threshold is blurred, tinted red and added back in scene light.
    - Film: a 48³ LUT per film stock (`Resources/Films`), applied in log space by `printlightShaper`
      plus `CIColorCube`. Each LUT is baked from a spectral simulation of a camera negative printed
      onto print film (see Look development). Output is Display P3. Stocks: Vision3 250D, 500T and 50D
      on 2383 print; Portra 400 and Ektar 100 on Endura; Gold 200 on Supra Endura; Fuji Pro 400H on
-     Crystal Archive.
+     Crystal Archive; Mono (panchromatic black and white through the 2383 neutral curve).
+   - Custom LUT (optional): an imported `.cube` applied to the film's output in sRGB encoding,
+     blended by a strength. Meant for Rec.709 display looks; LUTs built for a camera log input
+     (LogC, S-Log, Apple Log) expect a different encoding and will look wrong.
    - Black lift (viewing flare): prints are made for a dark theatre, so a small adjustable lift keeps
      their blacks from reading as crushed on a phone.
    - Grain is sized relative to the frame, so 12MP and 48MP shots look alike.
-4. **Save** (`Processing/PhotoLibrarySaver.swift`). It writes two Photos assets, the developed HEIC and
-   the DNG. Photos refuses them as one RAW+processed pair (error 3300).
+4. **Save** (`Processing/PhotoLibrarySaver.swift`). Each shot is one Photos asset: the DNG is the
+   original, and the developed HEIC is attached as a non-destructive edit whose adjustment data holds
+   the look settings (JSON, format `com.declanjavers.printlight.look`). Photos shows the developed
+   image and can revert to the RAW. Shots also go in a "Printlight" album. If Photos refuses the
+   edited save, it falls back to two separate photos.
+5. **Library** (`Library/ShotLibrary.swift`, `UI/LibraryView.swift`). It shows Printlight's own shots
+   plus Photos' RAW album, so ProRAW from the Camera app and older RAWs open too. The app stores only
+   the list of its own assets' identifiers. The library reads RAWs and settings back from Photos (downloading from
+   iCloud if needed). Saving from the editor replaces that photo's edit instead of making a copy.
+   Read/write Photos access is requested; Limited is enough, because an app's own photos stay visible to it.
 
 The live viewfinder runs the same kernels on the video feed. Those frames are already rendered by
 Apple, so `printlightUnrender` approximately undoes that first. **The viewfinder is a close guide,
 not an exact match.** Tap the thumbnail to see the true develop and to re-develop it with different
 settings.
+
+Zebra stripes in the viewfinder mark areas where the preview frame is at or near clipping. The
+frames are Apple-processed SDR video, so they're a guide to blown highlights, not a raw reading.
 
 An exact viewfinder needs scene-referred preview frames, and iOS doesn't offer them alongside RAW
 stills. Setting the camera to Apple Log or Apple Log 2 disables photo capture (documented in

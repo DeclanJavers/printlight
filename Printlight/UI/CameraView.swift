@@ -7,7 +7,7 @@ struct CameraView: View {
     @Environment(\.openURL) private var openURL
 
     @State private var showingLook = false
-    @State private var editingShot: Shot?
+    @State private var showingLibrary = false
     @State private var focusTap: FocusTap?
     @State private var shutterPresses = 0
     @State private var blackout = false
@@ -51,8 +51,8 @@ struct CameraView: View {
                 .presentationCornerRadius(28)
                 .presentationDragIndicator(.visible)
         }
-        .fullScreenCover(item: $editingShot) { shot in
-            EditorView(shot: shot, initialParams: model.params)
+        .fullScreenCover(isPresented: $showingLibrary) {
+            LibraryView(library: model.library)
         }
         .onAppear { camera.start() }
         .onChange(of: scenePhase) { _, phase in
@@ -79,6 +79,19 @@ struct CameraView: View {
             rawBadge
 
             Spacer()
+
+            Button {
+                model.zebras.toggle()
+            } label: {
+                Image(systemName: "line.diagonal")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(model.zebras ? Palette.accent : Color.white.opacity(0.45))
+                    .frame(width: 40, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(model.zebras ? "Highlight warnings on" : "Highlight warnings off")
+            .accessibilityHint("Stripes over parts of the frame that are clipping")
 
             Button {
                 model.lookEnabled.toggle()
@@ -303,7 +316,7 @@ struct CameraView: View {
     private var thumbnailButton: some View {
         let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
         return Button {
-            editingShot = model.lastShot
+            showingLibrary = true
         } label: {
             ZStack {
                 shape.fill(Color.white.opacity(0.05))
@@ -327,9 +340,9 @@ struct CameraView: View {
             .animation(.easeOut(duration: 0.3), value: model.lastShot?.id)
         }
         .buttonStyle(.plain)
-        .disabled(model.lastShot == nil)
+        .disabled(model.lastShot == nil && model.library.assets.isEmpty && model.library.availability != .unavailable)
         .accessibilityLabel(model.developingCount > 0 ? "Last photo, developing" : "Last photo")
-        .accessibilityHint("Opens the last shot to re-develop it")
+        .accessibilityHint("Opens your Printlight library")
     }
 
     private var shutterButton: some View {
