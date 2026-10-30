@@ -11,13 +11,20 @@ struct Shot: Identifiable {
     let thumbnail: UIImage
     let params: LookParameters
     var assetID: String?
+    /// When the photo was taken.
+    let date: Date?
+    /// False for a RAW from another app that Printlight hasn't developed yet.
+    let hasPrintlightSettings: Bool
 
-    init(id: UUID = UUID(), dng: Data, thumbnail: UIImage, params: LookParameters, assetID: String? = nil) {
+    init(id: UUID = UUID(), dng: Data, thumbnail: UIImage, params: LookParameters, assetID: String? = nil,
+         date: Date? = Date(), hasPrintlightSettings: Bool = true) {
         self.id = id
         self.dng = dng
         self.thumbnail = thumbnail
         self.params = params
         self.assetID = assetID
+        self.date = date
+        self.hasPrintlightSettings = hasPrintlightSettings
     }
 }
 
@@ -162,7 +169,8 @@ final class AppModel: ObservableObject {
 
     /// Re-develops a shot at full resolution and saves it. A shot that's already in Photos gets
     /// its edit replaced (same photo, new look); otherwise it's saved as a new photo.
-    func saveEdit(of shot: Shot, params: LookParameters) async {
+    @discardableResult
+    func saveEdit(of shot: Shot, params: LookParameters) async -> Bool {
         developingCount += 1
         defer { developingCount -= 1 }
         let dng = shot.dng
@@ -191,8 +199,10 @@ final class AppModel: ObservableObject {
             }
             Self.logTiming(thumb: .zero, heic: developed - start, save: clock.now - developed, bytes: dng.count)
             if saved { show("Saved to Photos") }
+            return saved
         case .failure(let error):
             show(error.localizedDescription, error: true)
+            return false
         }
     }
 
@@ -207,7 +217,8 @@ final class AppModel: ObservableObject {
                 Task { @MainActor in self.openingProgress = fraction }
             }
             let thumbnail = await libraryThumbnail(for: asset, side: 1200) ?? UIImage()
-            return Shot(dng: dng, thumbnail: thumbnail, params: saved ?? params, assetID: assetID)
+            return Shot(dng: dng, thumbnail: thumbnail, params: saved ?? params, assetID: assetID,
+                        date: asset.creationDate, hasPrintlightSettings: saved != nil)
         } catch {
             show("This photo can’t be opened. It was deleted or has no RAW.", error: true)
             return nil

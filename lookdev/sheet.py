@@ -67,7 +67,7 @@ def main(argv: list[str]) -> None:
     folder = Path(argv[1]) if len(argv) > 1 else HERE / "samples"
     wanted = set(argv[2:])
     films = [f for f in FILMS if not wanted or f["id"] in wanted]
-    chains = [(f["name"], FilmChain(f["negative"], f["print"])) for f in films]
+    chains = [(f["name"], FilmChain(f["negative"], f["print"]), bool(f.get("mono"))) for f in films]
 
     cache = folder / ".cache"
     cache.mkdir(exist_ok=True)
@@ -80,8 +80,8 @@ def main(argv: list[str]) -> None:
         if x is None:
             continue
         tiles = [labelled(apple_render(raw, cache, (x.shape[1], x.shape[0])), "Apple")]
-        for name, chain in chains:
-            y = encode_srgb(black_lift(chain.render(x)))
+        for name, chain, mono in chains:
+            y = encode_srgb(black_lift(chain.render_mono(x) if mono else chain.render(x)))
             tiles.append(labelled(Image.fromarray((y * 255 + 0.5).astype(np.uint8)), name))
         per_row = 4
         rows = [tiles[i:i + per_row] for i in range(0, len(tiles), per_row)]

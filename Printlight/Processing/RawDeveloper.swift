@@ -84,7 +84,8 @@ enum RawDeveloper {
         let lift = LookParameters.standard.blackLift
         let target = FilmLibrary.shared.defaultFilm.sceneStops(forDisplayLuminance: appleMedian * (1 + lift) - lift)
         let current = log2(sceneMedian / 0.18)
-        let stops = min(max(target - current, -1), 3)
+        // Wide limits: dim scenes are recorded very dark and can need 4–5 stops to match.
+        let stops = min(max(target - current, -2), 6)
 
         exposureCache.withLock { cache in
             if cache.count > 16 { cache.removeAll() }

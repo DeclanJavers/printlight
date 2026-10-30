@@ -1,184 +1,214 @@
 import CoreImage
 import SwiftUI
 
-/// Re-develop the last negative with different settings.
+/// Re-develops one shot. The photo re-renders live as settings change; Save updates the same
+/// photo in Photos (the RAW original is never touched, and Photos can always revert).
 struct EditorView: View {
     let shot: Shot
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var params: LookParameters
+    /// The settings as last saved; the edit is dirty when `params` differs.
+    @State private var saved: LookParameters
+    @State private var savedOnce = false
     @StateObject private var renderer = EditorRenderer()
-    @State private var showingControls = true
-    @State private var madeDefault = 0
+    @State private var panelHidden = false
+    @State private var saving = false
+    @State private var confirmingLeave = false
 
     init(shot: Shot) {
         self.shot = shot
         _params = State(initialValue: shot.params)
+        _saved = State(initialValue: shot.params)
     }
+
+    private var dirty: Bool { params != saved }
+    private var ready: Bool { renderer.isLoaded && !saving }
 
     var body: some View {
         GeometryReader { geo in
-            VStack(spacing: 0) {
-                topBar
-
-                image
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                if showingControls {
-                    LookControlsView(params: $params)
-                        .frame(height: min(geo.size.height * 0.44, 400))
-                        .background(
-                            UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24, style: .continuous)
-                                .fill(Palette.panel)
-                                .overlay(
-                                    UnevenRoundedRectangle(topLeadingRadius: 24, topTrailingRadius: 24, style: .continuous)
-                                        .strokeBorder(Palette.hairline, lineWidth: 0.5)
-                                )
-                                .ignoresSafeArea(edges: .bottom)
-                        )
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
+            let panelHeight = (geo.size.height * 0.47).rounded()
+            ZStack(alignment: .bottom) {
+                VStack(spacing: 0) {
+                    navRow
+                    saveProgress
+                    photo
+                        .padding(.horizontal, 8)
+                        .padding(.top, 2)
+                        .padding(.bottom, panelHidden ? 60 : panelHeight + 8 - geo.safeAreaInsets.bottom)
                 }
+                .frame(maxHeight: .infinity, alignment: .top)
+
+                LookControlsView(
+                    params: $params,
+                    mode: .editor(isDefault: params == model.params, useAsDefault: { model.params = params }),
+                    swatchSource: { renderer.scene.map { ($0, false) } },
+                    busy: !ready,
+                    onClose: { setPanelHidden(true) }
+                )
+                .frame(height: panelHeight)
+                .background(
+                    UnevenRoundedRectangle(topLeadingRadius: DS.radiusPanel, topTrailingRadius: DS.radiusPanel, style: .continuous)
+                        .fill(DS.Color.surface1)
+                        .overlay(alignment: .top) {
+                            UnevenRoundedRectangle(topLeadingRadius: DS.radiusPanel, topTrailingRadius: DS.radiusPanel, style: .continuous)
+                                .stroke(DS.Color.separator, lineWidth: 0.5)
+                                .frame(height: DS.radiusPanel)
+                                .mask(Rectangle().frame(height: DS.radiusPanel / 2).frame(maxHeight: .infinity, alignment: .top))
+                        }
+                        .ignoresSafeArea(edges: .bottom)
+                )
+                .offset(y: panelHidden ? panelHeight + 40 : 0)
+                .ignoresSafeArea(edges: .bottom)
+
+                Button { setPanelHidden(false) } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "slider.horizontal.3").font(.system(size: 15, weight: .semibold))
+                        Text("Show controls").ds(.subheadline).fontWeight(.semibold)
+                    }
+                    .padding(.horizontal, 18)
+                    .frame(height: DS.touch)
+                    .overlayMaterial(in: Capsule())
+                }
+                .buttonStyle(DSPlainButtonStyle())
+                .padding(.bottom, 8)
+                .opacity(panelHidden ? 1 : 0)
+                .offset(y: panelHidden ? 0 : 20)
+                .allowsHitTesting(panelHidden)
             }
         }
-        .background(Color.black.ignoresSafeArea())
-        .overlay(alignment: .top) {
-            if let message = model.message {
-                toast(message)
-                    .padding(.top, 56)
-            }
-        }
-        .animation(.easeInOut(duration: 0.25), value: model.message)
-        .foregroundStyle(.white)
+        .background(DS.Color.black.ignoresSafeArea())
+        .foregroundStyle(DS.Color.label)
         .environment(\.colorScheme, .dark)
-        .sensoryFeedback(.success, trigger: madeDefault)
+        .dsToast(text: $model.message, isError: model.messageIsError, top: 52)
+        .confirmationDialog("Save your changes to this photo?", isPresented: $confirmingLeave, titleVisibility: .visible) {
+            Button("Save to Photos") { save(thenLeave: true) }
+            Button("Discard changes", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+        } message: {
+            Text("Leaving now keeps the photo as it was.")
+        }
         .task { await renderer.load(shot.dng, params: params) }
         .onChange(of: params) { _, new in renderer.request(new) }
     }
 
-    // MARK: - Pieces
+    // MARK: Pieces
 
-    private var topBar: some View {
-        let isDefault = params == model.params
-        let saving = model.developingCount > 0
-        return HStack(spacing: 8) {
-            Button {
-                dismiss()
-            } label: {
-                Text("DONE")
-                    .readout(12, weight: .semibold)
-                    .foregroundStyle(Color.white.opacity(0.9))
-                    .frame(minWidth: 44, minHeight: 44)
-                    .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Done")
-
-            Spacer()
-
-            Button {
-                model.params = params
-                madeDefault += 1
-            } label: {
-                HStack(spacing: 5) {
-                    if isDefault {
-                        Image(systemName: "checkmark")
-                            .font(.system(size: 10, weight: .bold))
-                    }
-                    Text(isDefault ? "DEFAULT" : "USE AS DEFAULT")
-                        .readout(11, weight: .semibold)
-                }
-                .foregroundStyle(Color.white.opacity(isDefault ? 0.4 : 0.85))
-                .padding(.horizontal, 6)
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(isDefault)
-            .accessibilityLabel(isDefault ? "Current look is the default" : "Use as default")
-
-            Button {
-                let params = params
-                Task { await model.saveEdit(of: shot, params: params) }
-            } label: {
-                ZStack {
-                    Text("SAVE")
-                        .readout(11, weight: .bold)
-                        .opacity(saving ? 0 : 1)
-                    if saving {
-                        ProgressView()
-                            .controlSize(.small)
-                            .tint(.black)
-                    }
-                }
-                .foregroundStyle(.black)
-                .frame(width: 66, height: 30)
-                .background(Capsule().fill(Palette.accent.opacity(saving ? 0.55 : 1)))
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .disabled(saving)
-            .accessibilityLabel(saving ? "Saving" : "Save")
-        }
-        .padding(.horizontal, 14)
-        .frame(height: 52)
-        .animation(.easeOut(duration: 0.2), value: isDefault)
+    private var title: String {
+        guard let date = shot.date else { return "Photo" }
+        let calendar = Calendar.current
+        let day = calendar.isDateInToday(date) ? "Today"
+            : calendar.isDateInYesterday(date) ? "Yesterday"
+            : date.formatted(.dateTime.day().month(.wide))
+        return "\(day), \(date.formatted(date: .omitted, time: .shortened))"
     }
 
-    private var image: some View {
-        ZStack(alignment: .topTrailing) {
+    private var subtitle: (String, Bool) {
+        if dirty { return ("Unsaved changes", true) }
+        if !shot.hasPrintlightSettings && !savedOnce { return ("RAW from another app", false) }
+        return (FilmLibrary.shared.film(id: params.film).name, false)
+    }
+
+    private var navRow: some View {
+        ZStack {
+            VStack(spacing: 0) {
+                Text(title).ds(.headline)
+                Text(subtitle.0)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(subtitle.1 ? DS.Color.accent : DS.Color.label2)
+                    .lineLimit(1)
+            }
+            .padding(.horizontal, 96)
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            HStack {
+                Button("Done") {
+                    guard !saving else { return }
+                    if dirty { confirmingLeave = true } else { dismiss() }
+                }
+                .ds(.headline)
+                .padding(.horizontal, 8)
+                .frame(minHeight: DS.touch)
+                .buttonStyle(DSPlainButtonStyle())
+                Spacer()
+                Button { save(thenLeave: false) } label: {
+                    HStack(spacing: 8) {
+                        if saving { DSSpinner(size: 14, lineWidth: 2, color: .black) }
+                        Text(saving ? "Saving" : "Save").ds(.subheadline).fontWeight(.semibold)
+                    }
+                    .foregroundStyle(saving || (dirty && ready) ? Color.black : DS.Color.label3)
+                    .padding(.horizontal, 16)
+                    .frame(height: 32)
+                    .background(Capsule().fill(saving || (dirty && ready) ? Color.white : DS.Color.surface2))
+                    .padding(.vertical, 6)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(DSPlainButtonStyle())
+                .disabled(!dirty || !ready)
+                .padding(.trailing, 8)
+                .accessibilityLabel(saving ? "Saving" : "Save")
+            }
+        }
+        .padding(.horizontal, 8)
+        .frame(height: 44)
+    }
+
+    /// Amber 2 pt line under the bar while saving. The develop has no measurable progress, so it
+    /// sweeps steadily rather than pretending to a percentage.
+    private var saveProgress: some View {
+        GeometryReader { geo in
+            Rectangle()
+                .fill(DS.Color.accent)
+                .frame(width: saving ? geo.size.width * 0.9 : 0, height: 2)
+                .animation(saving ? .easeOut(duration: 4) : .easeOut(duration: 0.2), value: saving)
+        }
+        .frame(height: 2)
+        .opacity(saving ? 1 : 0)
+    }
+
+    private var photo: some View {
+        ZStack {
             Image(uiImage: renderer.image ?? shot.thumbnail)
                 .resizable()
                 .scaledToFit()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
+                .opacity(renderer.isLoaded ? 1 : 0)
+                .accessibilityLabel("Photo")
             if !renderer.isLoaded {
-                HStack(spacing: 8) {
-                    ProgressView()
-                        .controlSize(.mini)
-                        .tint(.white)
-                    Text("LOADING NEGATIVE")
-                        .readout(9, weight: .semibold)
-                        .foregroundStyle(Color.white.opacity(0.7))
+                VStack(spacing: 12) {
+                    DSSpinner()
+                    Text("Preparing RAW…").ds(.subheadline).foregroundStyle(DS.Color.label2)
                 }
-                .padding(.horizontal, 10)
-                .frame(height: 24)
-                .background(Capsule().fill(Color.black.opacity(0.6)))
-                .padding(12)
-                .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.2), value: renderer.isLoaded)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .contentShape(Rectangle())
         .onTapGesture {
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) { showingControls.toggle() }
+            guard renderer.isLoaded, !saving else { return }
+            setPanelHidden(!panelHidden)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Developed photo")
-        .accessibilityHint(showingControls ? "Double-tap to hide the controls" : "Double-tap to show the controls")
-        .accessibilityAddTraits(.isButton)
+        .accessibilityAction(named: panelHidden ? "Show controls" : "Hide controls") { setPanelHidden(!panelHidden) }
     }
 
-    private func toast(_ message: String) -> some View {
-        Text(message)
-            .font(.system(size: 13, weight: .medium))
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.black.opacity(0.78)))
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
-            )
-            .padding(.horizontal, 24)
-            .transition(.opacity.combined(with: .move(edge: .top)))
-            .task(id: message) {
-                try? await Task.sleep(for: .seconds(2.5))
-                if model.message == message { model.message = nil }
+    private func setPanelHidden(_ hidden: Bool) {
+        withAnimation(reduceMotion ? DS.Motion.reduced : DS.Motion.sheet) { panelHidden = hidden }
+    }
+
+    private func save(thenLeave: Bool) {
+        guard !saving else { return }
+        let snapshot = params
+        saving = true
+        Task {
+            let ok = await model.saveEdit(of: shot, params: snapshot)
+            saving = false
+            if ok {
+                saved = snapshot
+                savedOnce = true
+                if thenLeave { dismiss() }
             }
+        }
     }
-
 }
 
 /// Renders the editor preview. Decodes the negative once at screen size, then keeps at most one
@@ -190,7 +220,8 @@ final class EditorRenderer: ObservableObject {
     @Published private(set) var image: UIImage?
     @Published private(set) var isLoaded = false
 
-    private var scene: CIImage?
+    /// The decoded scene-linear negative; also the source for the film-card swatches.
+    private(set) var scene: CIImage?
     private var pending: LookParameters?
     private var rendering = false
 
@@ -200,7 +231,6 @@ final class EditorRenderer: ObservableObject {
         scene = await Task.detached(priority: .userInitiated) {
             RawDeveloper.sceneLinear(from: dng, scale: 0.2)
         }.value
-        isLoaded = scene != nil
         request(params)
     }
 
@@ -214,13 +244,11 @@ final class EditorRenderer: ObservableObject {
         pending = nil
         rendering = true
         Task.detached(priority: .userInitiated) {
-            let clock = ContinuousClock()
-            let start = clock.now
             let image = RawDeveloper.uiImage(from: FilmLook.shared.render(sceneLinear: scene, params: params))
-            let took = clock.now - start
             await MainActor.run {
-                print("PRINTLIGHT EDITOR render \(took.formatted(.units(allowed: [.milliseconds])))")
                 if let image { self.image = image }
+                // Shown once the first develop exists, so the photo never flashes the thumbnail.
+                self.isLoaded = true
                 self.rendering = false
                 self.pump()
             }

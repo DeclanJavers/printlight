@@ -47,10 +47,16 @@ float4 printlightShaper(sample_t scene, sample_t halo, sample_t blurredLogLuma, 
 }
 
 /// Energy above the halation threshold, to be blurred and fed back in by printlightShaper.
+/// It saturates (rolling off towards 4x the threshold level) as real halation does: light
+/// scattered back from the film base can't exceed what the emulsion passes, so the sun glows
+/// like a bright lamp instead of fogging half the frame. Mirrors halation_source in look.py.
 float4 printlightHalationSource(sample_t scene, float exposure, float thresholdStops) {
     float3 x = scene.rgb * exp2(exposure);
     float lum = dot(x, float3(0.2126f, 0.7152f, 0.0722f));
-    float over = max(lum - MID_GREY * exp2(2.0f + thresholdStops), 0.0f);
+    float threshold = MID_GREY * exp2(2.0f + thresholdStops);
+    float over = max(lum - threshold, 0.0f);
+    float ceiling = 4.0f * threshold;
+    over = over / (1.0f + over / ceiling);
     return float4(over * float3(1.0f, 0.22f, 0.04f), 1.0f);
 }
 

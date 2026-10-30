@@ -23,6 +23,7 @@
 		80201A75266F55AAAED7AE6A /* pro400h.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 503859AFE60137E7A6A82A19 /* pro400h.cube.bin */; };
 		833099F4A0E05CB25DA0EDBE /* WhiteBalance.swift in Sources */ = {isa = PBXBuildFile; fileRef = D688A7E0A646D35C76A7A5E2 /* WhiteBalance.swift */; };
 		85FBF4AE5D77E8F54A0E21D2 /* CustomLUTLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97D9C15DF779A4C7F01F4398 /* CustomLUTLibrary.swift */; };
+		AE9065342E120C183EEF5DCB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7E6C9D9A94F62B3FED68B273 /* Assets.xcassets */; };
 		BDBD4D6223DFE3250B1ACBAF /* CameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844EBE26338AE1263670179B /* CameraView.swift */; };
 		D33545317AB92D7BB4E183AB /* LICENSE-FILMS.txt in Resources */ = {isa = PBXBuildFile; fileRef = 28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */; };
 		D9EEC8021194B6D7A700E9CE /* mono2383.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = E1629FBCFDCB56D8742DCEC5 /* mono2383.cube.bin */; };
@@ -51,6 +52,7 @@
 		4F0F56D90AFEB5D5B2585B60 /* Printlight.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Printlight.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		503859AFE60137E7A6A82A19 /* pro400h.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = pro400h.cube.bin; sourceTree = "<group>"; };
 		73BDCC958ABD0CAFA60800E3 /* vision500t.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = vision500t.cube.bin; sourceTree = "<group>"; };
+		7E6C9D9A94F62B3FED68B273 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		7E9F66346CBC6CBC658A6EBC /* films.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = films.json; sourceTree = "<group>"; };
 		844AB2C9F2EC83C2E2E01C48 /* vision50d.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = vision50d.cube.bin; sourceTree = "<group>"; };
 		844EBE26338AE1263670179B /* CameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraView.swift; sourceTree = "<group>"; };
@@ -94,6 +96,7 @@
 		4754463859D4D4CC3B388177 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				7E6C9D9A94F62B3FED68B273 /* Assets.xcassets */,
 				13E9F0F04071C478A645C131 /* Films */,
 			);
 			path = Resources;
@@ -243,6 +246,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AE9065342E120C183EEF5DCB /* Assets.xcassets in Resources */,
 				D33545317AB92D7BB4E183AB /* LICENSE-FILMS.txt in Resources */,
 				EBA0D678C4F68CD272EF37B3 /* ektar100.cube.bin in Resources */,
 				E3A5CF576B7F47C893FA57AE /* films.json in Resources */,

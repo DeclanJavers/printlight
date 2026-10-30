@@ -25,6 +25,7 @@ targets:
         # Core Image kernels written in Metal need these two flags.
         MTL_COMPILER_FLAGS: -fcikernel
         MTLLINKER_FLAGS: -fcikernel
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Printlight
         INFOPLIST_KEY_NSCameraUsageDescription: Printlight uses the camera to take RAW photos.

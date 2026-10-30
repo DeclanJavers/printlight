@@ -1,60 +1,108 @@
 import SwiftUI
 
+/// The camera: everything for shooting sits in the bottom third, one-handed. The top bar holds
+/// only things set once and left alone: zebras, format, and the Look / Apple compare switch.
 struct CameraView: View {
     @EnvironmentObject private var model: AppModel
     @ObservedObject var camera: CameraController
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var showingLook = false
     @State private var showingLibrary = false
-    @State private var focusTap: FocusTap?
-    @State private var shutterPresses = 0
+    @State private var focus: FocusTap?
     @State private var blackout = false
+    @State private var shutterPresses = 0
+    @State private var focusTaps = 0
+    @State private var toggles = 0
+    @State private var warnings = 0
+    /// Counter-rotation for the square controls (icons, lens discs, thumbnail) when the phone is
+    /// held sideways. The layout never moves. Wide labels (RAW pill, EV readout) stay horizontal:
+    /// turned 90° they'd overflow their bars.
+    @State private var iconAngle: Double = 0
 
-    private let topBarHeight: CGFloat = 48
-    /// Height the exposure dial and shutter row need below the viewfinder.
-    private let controlsMinHeight: CGFloat = 172
+    private let topBarHeight: CGFloat = 44
+    private let evHeight: CGFloat = 60
+    private let captionHeight: CGFloat = 38
+
+    private var running: Bool { camera.status == .running || Self.uiDemo }
+    private var noRAW: Bool { running && camera.rawMode == .unavailable && !Self.uiDemo }
+
+    /// Debug builds launched with `-PrintlightUIDemo` show the camera chrome as if the camera
+    /// were running, so the simulator (which has no camera) can be used to check layout.
+    #if DEBUG
+    private static let uiDemo = ProcessInfo.processInfo.arguments.contains("-PrintlightUIDemo")
+    #else
+    private static let uiDemo = false
+    #endif
+    private var filmName: String { FilmLibrary.shared.film(id: model.params.film).name }
 
     var body: some View {
-        ZStack(alignment: .top) {
-            Color.black.ignoresSafeArea()
-
-            GeometryReader { geo in
-                // Lay out explicitly so the 3:4 viewfinder keeps full width whenever the
-                // controls fit, and shrinks (centered) only on short screens.
-                let available = geo.size.height - topBarHeight - controlsMinHeight
-                let finderHeight = max(min(geo.size.width * 4 / 3, available), 0)
-
-                VStack(spacing: 0) {
-                    topBar
-                        .frame(height: topBarHeight)
-                    viewfinder
-                        .frame(width: finderHeight * 3 / 4, height: finderHeight)
-                    bottomControls
-                        .frame(maxHeight: .infinity)
+        GeometryReader { geo in
+            let width = geo.size.width
+            let finderHeight = (width * 4 / 3).rounded()
+            let below = geo.size.height - topBarHeight - finderHeight
+            // Shorter than ~190 pt below the viewfinder: top bar moves over it, caption drops.
+            let compact = below < 190
+            VStack(spacing: 0) {
+                if !compact { topBar.frame(height: topBarHeight) }
+                viewfinder
+                    .frame(width: width, height: finderHeight)
+                    .overlay(alignment: .top) {
+                        if compact {
+                            topBar.frame(height: topBarHeight)
+                                .background(DS.Color.overlay.background(.ultraThinMaterial))
+                        }
+                    }
+                EVDial(bias: $camera.exposureBias)
+                    .frame(height: evHeight)
+                    .opacity(running ? 1 : 0)
+                    .allowsHitTesting(running)
+                shutterRow.frame(maxHeight: .infinity)
+                if !compact {
+                    filmCaption.frame(height: captionHeight)
                 }
-                .frame(width: geo.size.width)
             }
-
-            if let message = model.message {
-                toast(message)
-                    .padding(.top, topBarHeight + 12)
-            }
+            .frame(width: width, height: geo.size.height, alignment: .top)
         }
-        .animation(.easeInOut(duration: 0.25), value: model.message)
+        .background(DS.Color.black.ignoresSafeArea())
+        .foregroundStyle(DS.Color.label)
+        .statusBarHidden(true)
+        .dsToast(text: $model.message, isError: model.messageIsError, top: 52)
         .sheet(isPresented: $showingLook) {
-            LookControlsView(params: $model.params)
-                .presentationDetents([.medium, .large])
-                .presentationBackgroundInteraction(.enabled(upThrough: .medium))
-                .presentationBackground { PanelBackground() }
-                .presentationCornerRadius(28)
-                .presentationDragIndicator(.visible)
+            LookControlsView(
+                params: $model.params, mode: .camera,
+                swatchSource: { model.preview.currentFrame().map { ($0, true) } },
+                onClose: { showingLook = false }
+            )
+            .padding(.top, 8)
+            .presentationDetents([.fraction(0.56), .large])
+            .presentationBackground(DS.Color.surface1)
+            .presentationCornerRadius(DS.radiusSheet)
+            .presentationDragIndicator(.visible)
+            .presentationBackgroundInteraction(.enabled(upThrough: .fraction(0.56)))
+            .environmentObject(model)
         }
         .fullScreenCover(isPresented: $showingLibrary) {
             LibraryView(library: model.library)
+                .environmentObject(model)
         }
-        .onAppear { camera.start() }
+        .fullScreenCover(isPresented: Binding(get: { model.showPhotosPrePrompt }, set: { _ in })) {
+            PhotosPrePromptView { model.continueFromPhotosPrePrompt() }
+        }
+        .sensoryFeedback(.impact(weight: .medium), trigger: shutterPresses)
+        .sensoryFeedback(.impact(flexibility: .soft, intensity: 0.5), trigger: focusTaps)
+        .sensoryFeedback(.selection, trigger: toggles)
+        .sensoryFeedback(.warning, trigger: warnings)
+        .onAppear {
+            camera.start()
+            UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+            updateIconAngle()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            updateIconAngle()
+        }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active: camera.start()
@@ -66,91 +114,97 @@ struct CameraView: View {
             guard capturing else { return }
             blackout = true
             Task {
-                try? await Task.sleep(for: .milliseconds(60))
-                withAnimation(.easeOut(duration: 0.22)) { blackout = false }
+                try? await Task.sleep(for: .milliseconds(30))
+                withAnimation(DS.Motion.blackout) { blackout = false }
             }
         }
+        .accessibilityAction(.magicTap) { shoot() }
+    }
+
+    private func updateIconAngle() {
+        let angle: Double
+        switch UIDevice.current.orientation {
+        case .portrait: angle = 0
+        case .landscapeLeft: angle = 90
+        case .landscapeRight: angle = -90
+        default: return // face up/down and upside down keep the last orientation
+        }
+        guard angle != iconAngle else { return }
+        withAnimation(reduceMotion ? DS.Motion.reduced : .spring(response: 0.3, dampingFraction: 0.82)) { iconAngle = angle }
     }
 
     // MARK: - Top bar
 
     private var topBar: some View {
-        HStack(spacing: 2) {
-            rawBadge
-
-            Spacer()
-
+        HStack(spacing: 0) {
             Button {
                 model.zebras.toggle()
+                toggles += 1
+                model.show(model.zebras ? "Zebras on" : "Zebras off")
             } label: {
-                Image(systemName: "line.diagonal")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(model.zebras ? Palette.accent : Color.white.opacity(0.45))
-                    .frame(width: 40, height: 44)
-                    .contentShape(Rectangle())
+                ZebraGlyph(size: 19)
+                    .rotationEffect(.degrees(iconAngle))
+                    .foregroundStyle(model.zebras ? Color.black : DS.Color.label)
+                    .frame(width: 34, height: 34)
+                    .background(Circle().fill(model.zebras ? Color.white : DS.Color.surface2))
+                    .frame(width: DS.touch, height: DS.touch)
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel(model.zebras ? "Highlight warnings on" : "Highlight warnings off")
-            .accessibilityHint("Stripes over parts of the frame that are clipping")
+            .buttonStyle(DSScaleButtonStyle(scale: 0.92))
+            .accessibilityLabel("Clipping warning")
+            .accessibilityValue(model.zebras ? "On" : "Off")
 
-            Button {
-                model.lookEnabled.toggle()
-            } label: {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(model.lookEnabled ? Palette.accent : Color.white.opacity(0.35))
-                        .frame(width: 5, height: 5)
-                    Text(model.lookEnabled ? "LOOK" : "APPLE")
-                        .readout(11, weight: .semibold)
-                }
-                .foregroundStyle(model.lookEnabled ? Palette.accent : Color.white.opacity(0.6))
-                .frame(minWidth: 72, minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(model.lookEnabled ? "Showing Printlight look" : "Showing Apple preview")
-            .accessibilityHint("Switches the viewfinder between the Printlight look and Apple's preview")
+            Spacer()
+            if running { rawPill }
+            Spacer()
 
-            Button {
-                showingLook = true
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 16, weight: .regular))
-                    .foregroundStyle(Color.white.opacity(0.85))
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
+            HStack(spacing: 0) {
+                segment("Look", selected: model.lookEnabled) { model.lookEnabled = true }
+                segment("Apple", selected: !model.lookEnabled) { model.lookEnabled = false }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Look settings")
+            .padding(2)
+            .frame(height: 32)
+            .background(Capsule().fill(DS.Color.surface2))
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Preview")
         }
-        .padding(.leading, 16)
-        .padding(.trailing, 6)
-        .sensoryFeedback(.selection, trigger: model.lookEnabled)
+        .padding(.horizontal, 12)
     }
 
-    private var rawBadge: some View {
-        let mode = camera.rawMode
-        let warn = mode == .unavailable && camera.status == .running
-        let tint: Color = warn ? Palette.accent : Color.white.opacity(camera.status == .running ? 0.9 : 0.45)
-        return HStack(spacing: 7) {
-            Text(mode.label.uppercased())
-            if mode == .proRAW {
-                Rectangle()
-                    .fill(tint.opacity(0.45))
-                    .frame(width: 1, height: 9)
-                Text("\(camera.megapixels)MP")
-            }
+    private var rawPill: some View {
+        let text = noRAW ? "No RAW" : camera.rawMode == .proRAW ? "ProRAW \(camera.megapixels)MP" : "RAW 12MP"
+        return HStack(spacing: 6) {
+            if noRAW { Image(systemName: "exclamationmark.triangle.fill").font(.system(size: 12, weight: .bold)) }
+            Text(text).ds(.chip)
         }
-        .readout(10, weight: .semibold)
-        .foregroundStyle(tint)
-        .padding(.horizontal, 7)
-        .frame(height: 22)
-        .overlay(
-            RoundedRectangle(cornerRadius: 3, style: .continuous)
-                .strokeBorder(warn ? Palette.accent.opacity(0.6) : Color.white.opacity(0.28), lineWidth: 1)
-        )
+        .foregroundStyle(DS.Color.label)
+        .padding(.horizontal, 12)
+        .frame(height: 28)
+        .background(Capsule().fill(noRAW ? DS.Color.red : DS.Color.surface2))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(mode == .proRAW ? "\(mode.label), \(camera.megapixels) megapixels" : mode.label)
+        .accessibilityLabel("Format")
+        .accessibilityValue(noRAW ? "No RAW. The shutter is off on this lens."
+                            : camera.rawMode == .proRAW ? "ProRAW, \(camera.megapixels) megapixels" : "RAW, 12 megapixels")
+    }
+
+    private func segment(_ title: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            guard !selected else { return }
+            action()
+            toggles += 1
+        } label: {
+            Text(title)
+                .ds(.chip)
+                .foregroundStyle(selected ? Color.black : DS.Color.label2)
+                .padding(.horizontal, 10)
+                .frame(minWidth: 52, minHeight: 28)
+                .background(Capsule().fill(selected ? Color.white : .clear))
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+                .padding(.vertical, -6)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(title == "Look" ? "Film look" : "Apple")
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     // MARK: - Viewfinder
@@ -160,227 +214,261 @@ struct CameraView: View {
             ZStack {
                 PreviewView(renderer: model.preview)
                     .gesture(SpatialTapGesture().onEnded { tap in
-                        focusTap = FocusTap(point: tap.location)
+                        guard running else { return }
+                        focus = FocusTap(location: tap.location)
+                        focusTaps += 1
                         camera.focus(at: model.preview.normalizedFramePoint(for: tap.location, in: geo.size))
                     })
+                    .accessibilityElement()
+                    .accessibilityLabel("Viewfinder")
+                    .accessibilityValue(model.lookEnabled ? filmName : "Apple preview")
+                    .accessibilityHint("Double-tap to focus at the centre.")
+                    .accessibilityAction { focusAt(CGPoint(x: 0.5, y: 0.5), size: geo.size) }
+                    .accessibilityAction(named: "Focus at centre") { focusAt(CGPoint(x: 0.5, y: 0.5), size: geo.size) }
+                    .accessibilityAction(named: "Focus upper third") { focusAt(CGPoint(x: 0.5, y: 1.0 / 3), size: geo.size) }
+                    .accessibilityAction(named: "Focus lower third") { focusAt(CGPoint(x: 0.5, y: 2.0 / 3), size: geo.size) }
 
-                FrameLines()
-                    .allowsHitTesting(false)
-
-                if let focusTap {
-                    FocusReticle()
-                        .id(focusTap.id)
-                        .position(focusTap.point)
+                if let focus {
+                    FocusBox(reduceMotion: reduceMotion)
+                        .position(focus.location)
+                        .id(focus.id)
                         .allowsHitTesting(false)
-                        .task(id: focusTap) {
-                            try? await Task.sleep(for: .seconds(1.2))
-                            if self.focusTap == focusTap { self.focusTap = nil }
-                        }
                 }
+
+                if noRAW {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 13, weight: .bold))
+                            .foregroundStyle(DS.Color.red)
+                        Text("This lens can’t shoot RAW. Switch to 1×.").ds(.chip)
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(height: 34)
+                    .overlayMaterial(in: Capsule())
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 64)
+                }
+
+                if running && camera.lenses.count > 1 {
+                    lensGroup
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                        .padding(.bottom, 10)
+                }
+
+                if !Self.uiDemo { stateOverlay }
 
                 Color.black
-                    .opacity(blackout ? 0.85 : 0)
+                    .opacity(blackout ? 1 : 0)
                     .allowsHitTesting(false)
-
-                statusOverlay
-
-                VStack {
-                    Spacer()
-                    lensSelector
-                        .padding(.bottom, 14)
-                }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
-                .allowsHitTesting(false)
-        )
-        .sensoryFeedback(.impact(weight: .light, intensity: 0.6), trigger: focusTap) { _, new in new != nil }
+        .clipped()
+    }
+
+    private func focusAt(_ point: CGPoint, size: CGSize) {
+        guard running else { return }
+        focus = FocusTap(location: CGPoint(x: point.x * size.width, y: point.y * size.height))
+        focusTaps += 1
+        camera.focus(at: model.preview.normalizedFramePoint(for: focus!.location, in: size))
+    }
+
+    private var lensGroup: some View {
+        HStack(spacing: 0) {
+            ForEach(camera.lenses) { lens in
+                let active = lens.id == camera.currentLensID
+                Button {
+                    guard !active else { return }
+                    camera.select(lens: lens)
+                    toggles += 1
+                } label: {
+                    Text(active ? lens.label + "×" : lens.label)
+                        .font(.system(size: active ? 13 : 11, weight: .semibold))
+                        .tracking(-0.2)
+                        .foregroundStyle(active ? DS.Color.accent : DS.Color.label)
+                        .rotationEffect(.degrees(iconAngle))
+                        .frame(width: active ? 38 : 32, height: active ? 38 : 32)
+                        .background(Circle().fill(Color(white: 0x14 / 255).opacity(active ? 0.86 : 0.6)))
+                        .frame(width: DS.touch, height: DS.touch)
+                        .animation(DS.Motion.lens, value: active)
+                }
+                .buttonStyle(DSPlainButtonStyle())
+                .accessibilityLabel("\(lens.label) times")
+                .accessibilityAddTraits(active ? .isSelected : [])
+            }
+        }
+        .padding(.horizontal, 2)
+        .frame(height: DS.touch)
+        .background(Capsule().fill(Color.black.opacity(0.42)).background(.ultraThinMaterial, in: Capsule()))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Lens")
     }
 
     @ViewBuilder
-    private var statusOverlay: some View {
+    private var stateOverlay: some View {
         switch camera.status {
+        case .starting:
+            ZStack {
+                Color.black
+                DSSpinner()
+            }
+            .accessibilityElement()
+            .accessibilityLabel("Starting camera")
         case .denied:
-            statusCard(
-                icon: "camera",
-                title: "CAMERA ACCESS OFF",
-                detail: "Camera access is off. Turn it on in Settings > Printlight.",
-                actionTitle: "OPEN SETTINGS"
-            ) {
-                if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+            stateMessage(icon: "camera.fill", slashed: true, title: "Printlight needs the camera",
+                         body: "Allow camera access in Settings to take photos.") {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) { openURL(url) }
+                }
+                .buttonStyle(DSCapsuleButtonStyle())
+                .padding(.top, 10)
             }
         case .failed(let reason):
-            statusCard(icon: "exclamationmark.triangle", title: "CAMERA UNAVAILABLE", detail: reason)
-        case .starting, .running:
+            stateMessage(icon: "exclamationmark.triangle", slashed: false, title: "Camera unavailable", body: reason) {
+                EmptyView()
+            }
+        case .running:
             EmptyView()
         }
     }
 
-    private func statusCard(
-        icon: String,
-        title: String,
-        detail: String,
-        actionTitle: String? = nil,
-        action: (() -> Void)? = nil
-    ) -> some View {
-        VStack(spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 22, weight: .light))
-                .foregroundStyle(Palette.accent)
-                .accessibilityHidden(true)
-            Text(title)
-                .readout(11, weight: .semibold)
-                .foregroundStyle(.white)
-            Text(detail)
-                .font(.system(size: 13))
-                .foregroundStyle(Color.white.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            if let actionTitle, let action {
-                Button(action: action) {
-                    Text(actionTitle)
-                        .readout(11, weight: .semibold)
-                        .foregroundStyle(Palette.accent)
-                        .padding(.horizontal, 14)
-                        .frame(height: 32)
-                        .overlay(Capsule().strokeBorder(Palette.accent.opacity(0.5), lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 4)
-            }
-        }
-        .padding(32)
-        .frame(maxWidth: 320)
-    }
-
-    @ViewBuilder
-    private var lensSelector: some View {
-        if camera.lenses.count > 1 {
-            HStack(spacing: 4) {
-                ForEach(camera.lenses) { lens in
-                    let active = lens.id == camera.currentLensID
-                    Button {
-                        camera.select(lens: lens)
-                    } label: {
-                        Text(active ? lens.label + "×" : lens.label)
-                            .font(.system(size: active ? 12 : 11, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(active ? Palette.accent : Color.white.opacity(0.85))
-                            .frame(width: 38, height: 38)
-                            .background(Circle().fill(Color.black.opacity(active ? 0.65 : 0.35)))
-                            .overlay(
-                                Circle().strokeBorder(
-                                    active ? Palette.accent.opacity(0.55) : Color.white.opacity(0.12),
-                                    lineWidth: 0.75
-                                )
-                            )
-                            .contentShape(Circle())
+    private func stateMessage<A: View>(icon: String, slashed: Bool, title: String, body: String,
+                                       @ViewBuilder action: () -> A) -> some View {
+        ZStack {
+            Color.black
+            VStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 40, weight: .light))
+                    .foregroundStyle(DS.Color.label2)
+                    .overlay {
+                        if slashed {
+                            // Diagonal slash with a black gap, like SF Symbols' .slash variants.
+                            Capsule().fill(DS.Color.label2).frame(width: 2.5, height: 54)
+                                .background(Capsule().fill(Color.black).frame(width: 7, height: 54))
+                                .rotationEffect(.degrees(-45))
+                        }
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(lens.label)× lens")
-                    .accessibilityAddTraits(active ? .isSelected : [])
-                }
+                Text(title).ds(.title3).padding(.top, 6)
+                Text(body).ds(.subheadline).foregroundStyle(DS.Color.label2)
+                action()
             }
-            .padding(4)
-            .background(Capsule().fill(Color.black.opacity(0.25)))
-            .animation(.easeOut(duration: 0.15), value: camera.currentLensID)
-            .sensoryFeedback(.selection, trigger: camera.currentLensID)
+            .multilineTextAlignment(.center)
+            .padding(.horizontal, 40)
         }
     }
 
-    // MARK: - Bottom controls
+    // MARK: - Shutter row
 
-    private var bottomControls: some View {
-        VStack(spacing: 0) {
-            Spacer(minLength: 10)
-
-            ExposureDial(bias: $camera.exposureBias)
-
-            Spacer(minLength: 10)
-
-            HStack {
-                thumbnailButton
-                Spacer()
-                shutterButton
-                Spacer()
-                Color.clear.frame(width: 52, height: 52)
-            }
-            .padding(.horizontal, 32)
-
-            Spacer(minLength: 8)
+    private var shutterRow: some View {
+        HStack {
+            thumbnail
+            Spacer()
+            Button(action: shoot) { EmptyView() }
+                .buttonStyle(ShutterButtonStyle(disabled: !running || noRAW, busy: camera.isCapturing))
+                .accessibilityLabel("Take photo")
+                .accessibilityHint(noRAW ? "Unavailable: this lens can’t shoot RAW." : !running ? "The camera isn’t running." : "")
+            Spacer()
+            lookButton
         }
+        .padding(.horizontal, 30)
     }
 
-    private var thumbnailButton: some View {
-        let shape = RoundedRectangle(cornerRadius: 10, style: .continuous)
-        return Button {
-            showingLibrary = true
-        } label: {
+    private func shoot() {
+        if noRAW {
+            model.show("This lens can’t shoot RAW. Switch to 1×.", error: true)
+            warnings += 1
+            return
+        }
+        guard running, !camera.isCapturing else { return }
+        shutterPresses += 1
+        model.capture()
+    }
+
+    private var thumbnail: some View {
+        let shape = RoundedRectangle(cornerRadius: DS.radiusThumb, style: .continuous)
+        let developing = model.developingCount > 0
+        return Button { showingLibrary = true } label: {
             ZStack {
-                shape.fill(Color.white.opacity(0.05))
-                if let thumb = model.thumbnail {
-                    Image(uiImage: thumb)
+                if let image = model.thumbnail {
+                    Image(uiImage: image)
                         .resizable()
                         .scaledToFill()
                         .frame(width: 52, height: 52)
-                        .transition(.opacity)
-                }
-                if model.developingCount > 0 {
-                    Color.black.opacity(0.45)
-                    ProgressView()
-                        .controlSize(.small)
-                        .tint(.white)
+                        .id(ObjectIdentifier(image))
+                        .transition(.opacity.animation(DS.Motion.thumbDeveloped))
+                    if developing {
+                        Color.black.opacity(0.45)
+                        DSSpinner(size: 20)
+                    }
+                } else {
+                    Image(systemName: "photo")
+                        .font(.system(size: 20))
+                        .foregroundStyle(DS.Color.label3)
                 }
             }
             .frame(width: 52, height: 52)
+            .rotationEffect(.degrees(iconAngle))
+            .background(shape.fill(model.thumbnail == nil ? Color.clear : DS.Color.surface1))
             .clipShape(shape)
-            .overlay(shape.strokeBorder(Color.white.opacity(model.lastShot == nil ? 0.15 : 0.32), lineWidth: 1))
-            .animation(.easeOut(duration: 0.3), value: model.lastShot?.id)
-        }
-        .buttonStyle(.plain)
-        .disabled(model.lastShot == nil && model.library.assets.isEmpty && model.library.availability != .unavailable)
-        .accessibilityLabel(model.developingCount > 0 ? "Last photo, developing" : "Last photo")
-        .accessibilityHint("Opens your Printlight library")
-    }
-
-    private var shutterButton: some View {
-        Button {
-            shutterPresses += 1
-            model.capture()
-        } label: {
-            EmptyView()
-        }
-        .buttonStyle(ShutterButtonStyle(busy: camera.isCapturing))
-        .disabled(camera.isCapturing || camera.status != .running || camera.rawMode == .unavailable)
-        .sensoryFeedback(.impact(weight: .medium), trigger: shutterPresses)
-        .accessibilityLabel("Take photo")
-    }
-
-    // MARK: - Toast
-
-    private func toast(_ message: String) -> some View {
-        Text(message)
-            .font(.system(size: 13, weight: .medium))
-            .foregroundStyle(.white)
-            .multilineTextAlignment(.center)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.black.opacity(0.78))
-            )
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Color.white.opacity(0.12), lineWidth: 0.5)
+                shape.strokeBorder(model.thumbnail == nil ? DS.Color.surface3 : Color.white.opacity(0.22),
+                                   lineWidth: model.thumbnail == nil ? 1.5 : 1)
             )
-            .padding(.horizontal, 24)
-            .transition(.opacity.combined(with: .move(edge: .top)))
-            .task(id: message) {
-                try? await Task.sleep(for: .seconds(2.5))
-                model.message = nil
+            .scaleEffect(thumbPop ? 1 : 0.6)
+        }
+        .buttonStyle(DSPlainButtonStyle())
+        .onChange(of: camera.isCapturing) { _, capturing in
+            // A capture lands: the quick preview pops in.
+            guard capturing else { return }
+            thumbPop = false
+            withAnimation(reduceMotion ? DS.Motion.reduced : DS.Motion.thumbIn.delay(0.12)) { thumbPop = true }
+        }
+        .accessibilityLabel("Last photo")
+        .accessibilityValue(developing ? "Developing" : model.thumbnail == nil ? "None yet" : "")
+        .accessibilityHint("Opens the Library")
+    }
+
+    @State private var thumbPop = true
+
+    private var lookButton: some View {
+        let changes = LookSetting.changeCount(model.params)
+        return Button { showingLook = true } label: {
+            Image(systemName: "camera.filters")
+                .font(.system(size: 22, weight: .light))
+                .rotationEffect(.degrees(iconAngle))
+                .frame(width: 52, height: 52)
+                .background(Circle().fill(DS.Color.surface2))
+                .overlay(alignment: .topTrailing) {
+                    if changes > 0 {
+                        Text("\(changes)")
+                            .font(.system(size: 12, weight: .bold))
+                            .monospacedDigit()
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 5)
+                            .frame(minWidth: 20, minHeight: 20)
+                            .background(Capsule().fill(DS.Color.accent))
+                            .background(Capsule().stroke(Color.black, lineWidth: 4))
+                            .offset(x: 2, y: -2)
+                    }
+                }
+        }
+        .buttonStyle(DSScaleButtonStyle(scale: 0.94))
+        .accessibilityLabel("Look settings")
+        .accessibilityValue(filmName + (changes > 0 ? ", \(changes) \(changes == 1 ? "change" : "changes")" : ", Standard"))
+    }
+
+    private var filmCaption: some View {
+        Button { showingLook = true } label: {
+            HStack(spacing: 4) {
+                Text(model.lookEnabled ? filmName : "Apple preview").ds(.chip)
+                Image(systemName: "chevron.up").font(.system(size: 10, weight: .bold))
             }
+            .foregroundStyle(DS.Color.label2)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+        }
+        .buttonStyle(DSPlainButtonStyle())
+        .frame(maxHeight: .infinity, alignment: .top)
+        .accessibilityHint("Opens Look settings")
     }
 }
 
@@ -388,255 +476,240 @@ struct CameraView: View {
 
 private struct FocusTap: Equatable {
     let id = UUID()
-    let point: CGPoint
+    let location: CGPoint
 }
 
-/// Thin corner marks and rule-of-thirds hairlines, like a rangefinder's frame lines.
-private struct FrameLines: View {
-    var body: some View {
-        ZStack {
-            ThirdsGrid()
-                .stroke(Color.white.opacity(0.09), lineWidth: 0.5)
-            CornerMarks(inset: 12, length: 16)
-                .stroke(Color.white.opacity(0.55), style: StrokeStyle(lineWidth: 1, lineCap: .square))
-        }
-    }
-}
-
-private struct ThirdsGrid: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        for i in 1...2 {
-            let x = rect.minX + rect.width * CGFloat(i) / 3
-            path.move(to: CGPoint(x: x, y: rect.minY))
-            path.addLine(to: CGPoint(x: x, y: rect.maxY))
-            let y = rect.minY + rect.height * CGFloat(i) / 3
-            path.move(to: CGPoint(x: rect.minX, y: y))
-            path.addLine(to: CGPoint(x: rect.maxX, y: y))
-        }
-        return path
-    }
-}
-
-private struct CornerMarks: Shape {
-    let inset: CGFloat
-    let length: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        let r = rect.insetBy(dx: inset, dy: inset)
-        var path = Path()
-        let corners: [(CGPoint, CGFloat, CGFloat)] = [
-            (CGPoint(x: r.minX, y: r.minY), 1, 1),
-            (CGPoint(x: r.maxX, y: r.minY), -1, 1),
-            (CGPoint(x: r.minX, y: r.maxY), 1, -1),
-            (CGPoint(x: r.maxX, y: r.maxY), -1, -1),
-        ]
-        for (corner, dx, dy) in corners {
-            path.move(to: CGPoint(x: corner.x + dx * length, y: corner.y))
-            path.addLine(to: corner)
-            path.addLine(to: CGPoint(x: corner.x, y: corner.y + dy * length))
-        }
-        return path
-    }
-}
-
-/// Classic AF box: thin accent square with ticks at the middle of each edge. Lands with a small zoom.
-private struct FocusReticle: View {
-    @State private var landed = false
+/// Amber focus/exposure box: lands with a small zoom, holds, dims to 50%, fades out.
+private struct FocusBox: View {
+    let reduceMotion: Bool
+    @State private var scale: CGFloat = 1.35
+    @State private var opacity: Double = 1
 
     var body: some View {
         ZStack {
-            Rectangle()
-                .strokeBorder(Palette.accent, lineWidth: 1)
-            ReticleTicks(length: 6)
-                .stroke(Palette.accent, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 4).stroke(DS.Color.accent, lineWidth: 1.5)
+            // 7 pt ticks at the midpoint of each edge, pointing inwards.
+            ForEach(0..<4) { side in
+                Rectangle().fill(DS.Color.accent)
+                    .frame(width: side % 2 == 0 ? 1.5 : 7, height: side % 2 == 0 ? 7 : 1.5)
+                    .offset(
+                        x: side == 1 ? -34.5 : side == 3 ? 34.5 : 0,
+                        y: side == 0 ? -34.5 : side == 2 ? 34.5 : 0
+                    )
+            }
         }
-        .frame(width: 72, height: 72)
-        .scaleEffect(landed ? 1 : 1.35)
-        .opacity(landed ? 1 : 0)
-        .onAppear {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.72)) { landed = true }
+        .frame(width: 76, height: 76)
+        .scaleEffect(scale)
+        .opacity(opacity)
+        .task {
+            if reduceMotion {
+                scale = 1
+            } else {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) { scale = 1 }
+            }
+            try? await Task.sleep(for: .milliseconds(1500))
+            withAnimation(.easeOut(duration: 0.25)) { opacity = 0.5 }
+            try? await Task.sleep(for: .milliseconds(350))
+            withAnimation(.easeOut(duration: 0.35)) { opacity = 0 }
         }
     }
 }
 
-private struct ReticleTicks: Shape {
-    let length: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.minY + length))
-        path.move(to: CGPoint(x: rect.midX, y: rect.maxY))
-        path.addLine(to: CGPoint(x: rect.midX, y: rect.maxY - length))
-        path.move(to: CGPoint(x: rect.minX, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.minX + length, y: rect.midY))
-        path.move(to: CGPoint(x: rect.maxX, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.maxX - length, y: rect.midY))
-        return path
-    }
-}
-
-/// White ring and inner disc; the disc sinks while pressed. Dims when disabled.
+/// 80 pt white ring (4 pt) around a 64 pt disc that sinks to 0.88 when pressed.
 private struct ShutterButtonStyle: ButtonStyle {
+    let disabled: Bool
     let busy: Bool
 
     func makeBody(configuration: Configuration) -> some View {
-        ShutterBody(pressed: configuration.isPressed, busy: busy)
-    }
-
-    private struct ShutterBody: View {
-        let pressed: Bool
-        let busy: Bool
-        @Environment(\.isEnabled) private var isEnabled
-
-        var body: some View {
-            let live = isEnabled || busy
-            ZStack {
-                Circle()
-                    .strokeBorder(Color.white.opacity(live ? 1 : 0.3), lineWidth: 3)
-                    .frame(width: 78, height: 78)
-                Circle()
-                    .fill(Color.white.opacity(busy ? 0.35 : (isEnabled ? 1 : 0.22)))
-                    .frame(width: 64, height: 64)
-                    .scaleEffect(pressed ? 0.86 : 1)
-            }
-            .contentShape(Circle())
-            .animation(.spring(response: 0.22, dampingFraction: 0.6), value: pressed)
-            .animation(.easeOut(duration: 0.2), value: busy)
-            .animation(.easeOut(duration: 0.2), value: isEnabled)
+        let pressed = (configuration.isPressed && !disabled) || busy
+        return ZStack {
+            Circle().strokeBorder(Color.white.opacity(disabled ? 0.3 : 1), lineWidth: 4)
+            Circle()
+                .fill(Color.white.opacity(disabled ? 0.22 : busy ? 0.55 : 1))
+                .frame(width: 64, height: 64)
+                .scaleEffect(pressed ? 0.88 : 1)
+                .animation(DS.Motion.shutterPress, value: pressed)
         }
+        .frame(width: 80, height: 80)
+        .contentShape(Circle())
     }
 }
 
-/// Exposure compensation as a scrubbable tick ruler: −3…+3 EV in third stops.
-/// Drag to scrub (a selection tick per third), double-tap to return to zero.
-private struct ExposureDial: View {
+/// Capture exposure: a ruler in thirds of a stop moving under a fixed amber needle.
+/// 14 pt per third; long ticks and numbers at whole stops. Distinct from the Look panel's
+/// development Exposure (a slider in stops) on purpose.
+private struct EVDial: View {
     @Binding var bias: Float
+    @State private var dragStart: Int?
+    @State private var resets = 0
 
     private let spacing: CGFloat = 14
-    private let steps = 9 // third stops either side of zero
-
-    @State private var dragStartIndex: Int?
-    @State private var dragTranslation: CGFloat = 0
-
-    private var index: Int { Int((bias * 3).rounded()) }
-
-    /// Horizontal offset of the ruler so the current value sits under the centre mark.
-    private var position: CGFloat {
-        if let start = dragStartIndex {
-            let limit = CGFloat(steps) * spacing
-            return min(max(CGFloat(start) * spacing - dragTranslation, -limit), limit)
-        }
-        return CGFloat(index) * spacing
-    }
-
-    private var valueText: String {
-        index == 0 ? "±0.0" : String(format: "%+.1f", Double(index) / 3).replacingOccurrences(of: "-", with: "−")
-    }
+    private var thirds: Int { Int((bias * 3).rounded()) }
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 6) {
-                Text("EV")
-                    .foregroundStyle(Color.white.opacity(0.4))
-                Text(valueText)
-                    .foregroundStyle(index == 0 ? Color.white.opacity(0.85) : Palette.accent)
-            }
-            .readout(12, weight: .semibold)
-
+        GeometryReader { geo in
+            let mid = geo.size.width / 2
             ZStack(alignment: .top) {
-                ruler
-                    .offset(x: -position)
-                    .animation(
-                        dragStartIndex == nil ? .spring(response: 0.3, dampingFraction: 0.85) : .interactiveSpring(),
-                        value: position
-                    )
-                Capsule()
-                    .fill(index == 0 ? Color.white : Palette.accent)
-                    .frame(width: 2, height: 18)
-                    .offset(y: -3)
-            }
-            .frame(maxWidth: .infinity)
-            .frame(height: 30, alignment: .top)
-            .mask(
-                LinearGradient(
-                    stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: .black, location: 0.22),
-                        .init(color: .black, location: 0.78),
-                        .init(color: .clear, location: 1),
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            )
-        }
-        .frame(height: 56)
-        .contentShape(Rectangle())
-        .gesture(
-            DragGesture(minimumDistance: 3)
-                .onChanged { drag in
-                    if dragStartIndex == nil { dragStartIndex = index }
-                    dragTranslation = drag.translation.width
-                    let raw = CGFloat(dragStartIndex ?? 0) - drag.translation.width / spacing
-                    set(Int(raw.rounded()))
-                }
-                .onEnded { _ in
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                        dragStartIndex = nil
-                        dragTranslation = 0
+                readout
+                    .zIndex(1)
+                Canvas { context, size in
+                    let origin = mid - CGFloat(thirds) * spacing
+                    // Numbers on their own row above the ticks; ticks hang from a common baseline.
+                    let labelY: CGFloat = 5, baseline = size.height - 2
+                    for n in -9...9 {
+                        let x = origin + CGFloat(n) * spacing
+                        let whole = n % 3 == 0
+                        let height: CGFloat = whole ? 12 : 7
+                        let color: Color = n == 0 ? .white : whole ? DS.Color.label2 : DS.Color.label3
+                        context.fill(Path(roundedRect: CGRect(x: x - 0.75, y: baseline - height, width: 1.5, height: height), cornerRadius: 1),
+                                     with: .color(color))
+                        guard whole else { continue }
+                        // Centre the digit on its tick; the sign hangs to its left so "+1" and
+                        // "−1" sit over their ticks the same way "0" does.
+                        let digit = context.resolve(Text("\(abs(n / 3))").font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(n == 0 ? DS.Color.label2 : DS.Color.label3))
+                        let digitWidth = digit.measure(in: CGSize(width: 40, height: 20)).width
+                        context.draw(digit, at: CGPoint(x: x, y: labelY), anchor: .center)
+                        if n != 0 {
+                            let sign = context.resolve(Text(n > 0 ? "+" : DSFormat.minus).font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(DS.Color.label3))
+                            context.draw(sign, at: CGPoint(x: x - digitWidth / 2, y: labelY), anchor: .trailing)
+                        }
                     }
                 }
-        )
-        .onTapGesture(count: 2) {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) { set(0) }
+                .frame(height: 28)
+                .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.22),
+                                             .init(color: .black, location: 0.78), .init(color: .clear, location: 1)],
+                                     startPoint: .leading, endPoint: .trailing))
+                .padding(.top, 30)
+                .animation(.easeOut(duration: 0.14), value: thirds)
+                // Covers only the tick row, so the "0" above it stays readable.
+                RoundedRectangle(cornerRadius: 1).fill(DS.Color.accent)
+                    .frame(width: 2, height: 17)
+                    .padding(.top, 41)
+            }
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 3)
+                    .onChanged { drag in
+                        let start = dragStart ?? thirds
+                        if dragStart == nil { dragStart = start }
+                        let next = min(max(start - Int((drag.translation.width / spacing).rounded()), -9), 9)
+                        if next != thirds { bias = Float(next) / 3 }
+                    }
+                    .onEnded { _ in dragStart = nil }
+            )
         }
-        .sensoryFeedback(.selection, trigger: index)
+        .sensoryFeedback(trigger: thirds) { _, new in
+            new == 0 || abs(new) == 9 ? .impact(flexibility: .rigid, intensity: 0.7) : .selection
+        }
+        .sensoryFeedback(.impact(flexibility: .rigid, intensity: 0.7), trigger: resets)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Exposure compensation")
-        .accessibilityValue(index == 0 ? "0 EV" : String(format: "%+.1f EV", Double(index) / 3))
+        .accessibilityValue(DSFormat.thirdsSpoken(thirds))
         .accessibilityAdjustableAction { direction in
             switch direction {
-            case .increment: set(index + 1)
-            case .decrement: set(index - 1)
+            case .increment: bias = Float(min(thirds + 1, 9)) / 3
+            case .decrement: bias = Float(max(thirds - 1, -9)) / 3
             @unknown default: break
             }
         }
-        .accessibilityAction(named: "Reset to zero") { set(0) }
+        .accessibilityAction(named: "Reset to zero") { bias = 0 }
     }
 
-    private func set(_ newIndex: Int) {
-        let clamped = min(max(newIndex, -steps), steps)
-        if clamped != index { bias = Float(clamped) / 3 }
-    }
-
-    private var ruler: some View {
-        let width = CGFloat(steps * 2) * spacing + 40
-        let active = index == 0 ? 0...0 : min(0, index)...max(0, index)
-        return Canvas { context, size in
-            let center = size.width / 2
-            for i in -steps...steps {
-                let x = center + CGFloat(i) * spacing
-                let major = i % 3 == 0
-                let lit = index != 0 && active.contains(i)
-                var tick = Path()
-                tick.move(to: CGPoint(x: x, y: 2))
-                tick.addLine(to: CGPoint(x: x, y: major ? 14 : 8))
-                let color: Color = lit ? Palette.accent : Color.white.opacity(major ? 0.75 : 0.3)
-                context.stroke(tick, with: .color(color), lineWidth: 1)
-                if major {
-                    let stops = i / 3
-                    let label = stops == 0 ? "0" : (stops > 0 ? "+\(stops)" : "−\(-stops)")
-                    context.draw(
-                        Text(label)
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .foregroundColor(Color.white.opacity(0.4)),
-                        at: CGPoint(x: x, y: 23)
-                    )
+    private var readout: some View {
+        Button {
+            guard thirds != 0 else { return }
+            bias = 0
+            resets += 1
+        } label: {
+            HStack(spacing: 5) {
+                Text(thirds == 0 ? "EV ±0" : "\(DSFormat.thirds(thirds)) EV")
+                    .ds(.chip)
+                    .monospacedDigit()
+                if thirds != 0 {
+                    Image(systemName: "xmark").font(.system(size: 9, weight: .heavy))
                 }
             }
+            .foregroundStyle(thirds == 0 ? DS.Color.label2 : DS.Color.accent)
+            .padding(.horizontal, 10)
+            .frame(height: 24)
+            .background(Capsule().fill(thirds == 0 ? Color.clear : DS.Color.accent.opacity(0.14)))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+            .padding(.horizontal, -8)
+            .padding(.vertical, -10)
         }
-        .frame(width: width, height: 30)
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+        .accessibilityHidden(true)
+    }
+}
+
+/// Shown once, just before the first save: where shots go, and that Limited Access is enough.
+/// Continue brings up the system prompt; the first shot waits in memory meanwhile.
+struct PhotosPrePromptView: View {
+    let onContinue: () -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Spacer()
+            ZStack {
+                RoundedRectangle(cornerRadius: 24, style: .continuous).fill(DS.Color.surface2)
+                Image(systemName: "photo")
+                    .font(.system(size: 44, weight: .regular))
+                    .foregroundStyle(.white)
+                    .overlay(alignment: .topTrailing) {
+                        Circle().fill(DS.Color.accent).frame(width: 9, height: 9).offset(x: -9, y: 9)
+                    }
+            }
+            .frame(width: 96, height: 96)
+            .accessibilityHidden(true)
+            Text("Your shots go to Photos")
+                .ds(.title1)
+                .padding(.top, 22)
+                .padding(.bottom, 10)
+            Text("Every shot is saved to your photo library as a RAW with Printlight’s look attached. Photos can always undo the look.")
+                .ds(.body)
+                .foregroundStyle(DS.Color.label2)
+                .padding(.bottom, 12)
+            VStack(alignment: .leading, spacing: 0) {
+                option("Limited Access is enough", "Printlight can always see the photos it takes.")
+                Rectangle().fill(DS.Color.separator).frame(height: 1 / 3)
+                option("Full Access adds your other RAWs", "Re-develop ProRAW from the Camera app and other apps too.")
+            }
+            .background(RoundedRectangle(cornerRadius: DS.radiusGroup, style: .continuous).fill(DS.Color.surface2))
+            .padding(.top, 10)
+            Spacer()
+            Button(action: onContinue) {
+                Text("Continue")
+                    .ds(.headline)
+                    .foregroundStyle(.black)
+                    .frame(maxWidth: .infinity, minHeight: 50)
+                    .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white))
+            }
+            .buttonStyle(DSPlainButtonStyle())
+            .padding(.bottom, 24)
+        }
+        .multilineTextAlignment(.center)
+        .foregroundStyle(DS.Color.label)
+        .padding(.horizontal, 32)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.Color.surface1.ignoresSafeArea())
+        .interactiveDismissDisabled()
+    }
+
+    private func option(_ title: String, _ detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title).ds(.subheadline)
+            Text(detail).ds(.footnote).foregroundStyle(DS.Color.label2)
+        }
+        .multilineTextAlignment(.leading)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, DS.rowPadding)
+        .padding(.vertical, 12)
+        .accessibilityElement(children: .combine)
     }
 }

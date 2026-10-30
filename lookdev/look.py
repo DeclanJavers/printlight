@@ -68,7 +68,9 @@ def halation_source(x: np.ndarray, p: LookParameters) -> np.ndarray:
     """Energy above the threshold, scene-linear, sRGB primaries. Caller blurs it."""
     thr = MID_GREY * np.exp2(2.0 + p.halation_threshold)
     lum = x @ np.array([0.2126, 0.7152, 0.0722])
-    over = np.maximum(lum - thr, 0.0)[..., None]
+    over = np.maximum(lum - thr, 0.0)
+    # Saturates towards 4x the threshold level, as real halation does (see Look.ci.metal).
+    over = (over / (1.0 + over / (4.0 * thr)))[..., None]
     return over * np.array([1.0, 0.22, 0.04])
 
 

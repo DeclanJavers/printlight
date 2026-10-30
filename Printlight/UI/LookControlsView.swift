@@ -1,416 +1,504 @@
+import CoreImage
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - Design system
-
-/// Shared look for Printlight's chrome: black, white at varying opacity, one warm accent.
-enum Palette {
-    /// Warm amber, #F2A93B.
-    static let accent = Color(red: 242 / 255, green: 169 / 255, blue: 59 / 255)
-    /// Near-black used for panels that sit on top of the image.
-    static let panel = Color(white: 0.07)
-    static let hairline = Color.white.opacity(0.1)
-}
-
-extension View {
-    /// Small monospaced, tracked text used for readouts and labels (RAW badge, EV, lens, headers).
-    func readout(_ size: CGFloat = 11, weight: Font.Weight = .medium) -> some View {
-        font(.system(size: size, weight: weight, design: .monospaced))
-            .tracking(size * 0.14)
-    }
-}
-
-/// Dark translucent background for sheets presented over the viewfinder.
-struct PanelBackground: View {
-    var body: some View {
-        ZStack {
-            Rectangle().fill(.ultraThinMaterial)
-            Color.black.opacity(0.62)
-        }
-        .environment(\.colorScheme, .dark)
-    }
-}
-
-/// A thin, precise slider: 2pt track, accent fill from the origin, a tick at the default value,
-/// and a small white thumb. Drags are relative, so touching the track never makes the value jump.
-struct InstrumentSlider: View {
-    @Binding var value: Double
-    let range: ClosedRange<Double>
-    var defaultValue: Double?
-
-    @State private var dragStartValue: Double?
-
-    private let thumb: CGFloat = 14
-    private var span: Double { range.upperBound - range.lowerBound }
-
-    /// Fill grows from zero when the range spans it (exposure-like values), otherwise from the minimum.
-    private var origin: Double {
-        range.lowerBound < 0 && range.upperBound > 0 ? 0 : range.lowerBound
-    }
-
-    private var isAtDefault: Bool {
-        guard let defaultValue else { return false }
-        return abs(value - defaultValue) < span * 1e-6
-    }
-
-    var body: some View {
-        GeometryReader { geo in
-            let width = geo.size.width
-            let thumbX = x(for: value, in: width)
-            let originX = x(for: origin, in: width)
-
-            ZStack(alignment: .leading) {
-                Capsule()
-                    .fill(Color.white.opacity(0.14))
-                    .frame(width: max(width - thumb, 0), height: 2)
-                    .offset(x: thumb / 2)
-
-                Capsule()
-                    .fill(Palette.accent)
-                    .frame(width: abs(thumbX - originX), height: 2)
-                    .offset(x: min(thumbX, originX))
-
-                if let defaultValue {
-                    Rectangle()
-                        .fill(Color.white.opacity(0.5))
-                        .frame(width: 1, height: 8)
-                        .offset(x: x(for: defaultValue, in: width) - 0.5)
-                }
-
-                Circle()
-                    .fill(Color.white)
-                    .frame(width: thumb, height: thumb)
-                    .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-                    .scaleEffect(dragStartValue != nil ? 1.25 : 1)
-                    .offset(x: thumbX - thumb / 2)
-            }
-            .frame(width: width, height: geo.size.height, alignment: .leading)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { drag in
-                        let start = dragStartValue ?? value
-                        if dragStartValue == nil { dragStartValue = value }
-                        let travel = max(width - thumb, 1)
-                        var next = start + Double(drag.translation.width / travel) * span
-                        next = min(max(next, range.lowerBound), range.upperBound)
-                        // Detent at the default so it's easy to find again.
-                        if let defaultValue, abs(next - defaultValue) < span * 0.015 { next = defaultValue }
-                        value = next
-                    }
-                    .onEnded { _ in dragStartValue = nil }
-            )
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: dragStartValue != nil)
-        }
-        .frame(height: 28)
-        .sensoryFeedback(trigger: isAtDefault) { _, atDefault in atDefault ? .selection : nil }
-    }
-
-    private func x(for v: Double, in width: CGFloat) -> CGFloat {
-        let t = span > 0 ? (min(max(v, range.lowerBound), range.upperBound) - range.lowerBound) / span : 0
-        return thumb / 2 + CGFloat(t) * max(width - thumb, 0)
-    }
-}
-
-// MARK: - Look controls
-
-/// One adjustable look parameter.
-struct LookParameterSpec: Identifiable {
+/// One adjustable setting in the Look panel.
+struct LookSetting: Identifiable {
     let title: String
+    var subtitle: String?
     let keyPath: WritableKeyPath<LookParameters, Double>
     let range: ClosedRange<Double>
-    let format: String
+    let step: Double
+    var ends: (String, String)?
+    let format: (Double) -> String
 
     var id: String { title }
     var defaultValue: Double { LookParameters.standard[keyPath: keyPath] }
+    func isDefault(_ value: Double) -> Bool { abs(value - defaultValue) < 1e-9 }
 
-    func isDefault(_ value: Double) -> Bool {
-        abs(value - defaultValue) < (range.upperBound - range.lowerBound) * 1e-6
-    }
-}
+    static let tone: [LookSetting] = [
+        LookSetting(title: "Exposure", subtitle: "Brightens or darkens after capture", keyPath: \.exposure,
+                    range: -3...3, step: 0.1, format: { DSFormat.signed($0, decimals: 1) + " stops" }),
+        LookSetting(title: "Black lift", subtitle: "How deep the blacks go", keyPath: \.blackLift,
+                    range: 0...0.04, step: 0.001, format: { DSFormat.fixed($0, decimals: 3) }),
+    ]
+    static let colour: [LookSetting] = [
+        LookSetting(title: "Warmth", keyPath: \.warmth, range: -1...1, step: 0.01, ends: ("Cooler", "Warmer"),
+                    format: { DSFormat.signed($0, decimals: 2) }),
+        LookSetting(title: "Tint", keyPath: \.tint, range: -1...1, step: 0.01, ends: ("Green", "Magenta"),
+                    format: { DSFormat.signed($0, decimals: 2) }),
+    ]
+    static let texture: [LookSetting] = [
+        LookSetting(title: "Clarity", keyPath: \.clarity, range: 0...1, step: 0.01, format: { DSFormat.fixed($0, decimals: 2) }),
+        LookSetting(title: "Halation", subtitle: "Red glow around bright lights", keyPath: \.halation,
+                    range: 0...0.5, step: 0.01, format: { DSFormat.fixed($0, decimals: 2) }),
+        LookSetting(title: "Halation threshold", subtitle: "How bright something must be to glow", keyPath: \.halationThreshold,
+                    range: -1...3, step: 0.1, format: { DSFormat.signed($0, decimals: 1) + " stops" }),
+        LookSetting(title: "Grain", keyPath: \.grain, range: 0...0.04, step: 0.001, format: { DSFormat.fixed($0, decimals: 3) }),
+    ]
+    static let lutStrength = LookSetting(title: "Strength", keyPath: \.customLUTStrength, range: 0...1, step: 0.01,
+                                         format: { DSFormat.fixed($0, decimals: 2) })
+    static let all = tone + colour + texture
 
-private struct LookSection: Identifiable {
-    let title: String
-    let rows: [LookParameterSpec]
-    var id: String { title }
-
-    static var all: [LookSection] {
-        [
-            LookSection(title: "TONE", rows: [
-                LookParameterSpec(title: "Exposure", keyPath: \.exposure, range: -3...3, format: "%+.2f"),
-                LookParameterSpec(title: "Black lift", keyPath: \.blackLift, range: 0...0.04, format: "%.3f"),
-            ]),
-            LookSection(title: "COLOUR", rows: [
-                LookParameterSpec(title: "Warmth", keyPath: \.warmth, range: -1...1, format: "%+.2f"),
-                LookParameterSpec(title: "Tint", keyPath: \.tint, range: -1...1, format: "%+.2f"),
-            ]),
-            LookSection(title: "TEXTURE", rows: [
-                LookParameterSpec(title: "Clarity", keyPath: \.clarity, range: 0...1, format: "%.2f"),
-                LookParameterSpec(title: "Halation", keyPath: \.halation, range: 0...0.5, format: "%.2f"),
-                LookParameterSpec(title: "Halation threshold", keyPath: \.halationThreshold, range: -1...3, format: "%+.1f"),
-                LookParameterSpec(title: "Grain", keyPath: \.grain, range: 0...0.04, format: "%.3f"),
-            ]),
-        ]
-    }
-}
-
-/// Every look parameter as a dark instrument panel. Shared by the camera sheet and the editor.
-struct LookControlsView: View {
-    @Binding var params: LookParameters
-
-    @State private var importingLUT = false
-    @State private var lutError: String?
-
-    private let sections = LookSection.all
-
-    private var adjustedCount: Int {
-        sections.flatMap(\.rows).filter { !$0.isDefault(params[keyPath: $0.keyPath]) }.count
-            + (params.film == LookParameters.standard.film ? 0 : 1)
+    /// Settings that differ from Standard: the film, each changed slider, and a loaded LUT.
+    static func changeCount(_ params: LookParameters) -> Int {
+        (params.film == LookParameters.standard.film ? 0 : 1)
+            + all.filter { !$0.isDefault(params[keyPath: $0.keyPath]) }.count
             + (params.customLUT == nil ? 0 : 1)
     }
+}
+
+/// The Look panel: film, development settings and a custom LUT. Hosted by the camera's sheet
+/// (edits the default for new shots) and the Editor's bottom panel (edits one photo).
+struct LookControlsView: View {
+    enum Mode {
+        case camera
+        case editor(isDefault: Bool, useAsDefault: () -> Void)
+    }
+
+    @Binding var params: LookParameters
+    let mode: Mode
+    let swatchSource: () -> (CIImage, Bool)?
+    var busy = false
+    let onClose: () -> Void
+
+    @EnvironmentObject private var model: AppModel
+    @Environment(\.dynamicTypeSize) private var typeSize
+    @StateObject private var swatches = FilmSwatches()
+    @State private var importingLUT = false
+    @State private var lutError: String?
+    @State private var resetAllPulses = 0
+    @State private var resetOnePulses = 0
+    @State private var successPulses = 0
+
+    init(params: Binding<LookParameters>, mode: Mode, swatchSource: @escaping () -> (CIImage, Bool)?,
+         busy: Bool = false, onClose: @escaping () -> Void) {
+        _params = params
+        self.mode = mode
+        self.swatchSource = swatchSource
+        self.busy = busy
+        self.onClose = onClose
+    }
+
+    private var isCamera: Bool { if case .camera = mode { true } else { false } }
+    private var changes: Int { LookSetting.changeCount(params) }
 
     var body: some View {
         VStack(spacing: 0) {
             header
-
+            summary
+                .opacity(busy ? 0.4 : 1)
+                .allowsHitTesting(!busy)
             ScrollView {
-                VStack(alignment: .leading, spacing: 26) {
-                    filmSection
-                    ForEach(sections) { section in
-                        sectionView(section)
-                    }
-                    lutSection
+                VStack(alignment: .leading, spacing: 0) {
+                    sectionHeader("Film").padding(.top, 8)
+                    filmCards
+                    sectionHeader("Tone")
+                    group(LookSetting.tone)
+                    sectionHeader("Colour")
+                    group(LookSetting.colour)
+                    sectionHeader("Texture")
+                    group(LookSetting.texture)
+                    sectionHeader("Custom LUT")
+                    lutGroup
+                    Text("Use standard Rec.709 look LUTs, not camera log LUTs. Applied on top of the film.")
+                        .ds(.footnote)
+                        .foregroundStyle(DS.Color.label2)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 6)
                     Text("Film data: spektrafilm profiles by Andrea Volpato, CC BY-SA 4.0.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(Color.white.opacity(0.3))
+                        .ds(.caption1)
+                        .foregroundStyle(DS.Color.label3)
+                        .padding(.horizontal, 32)
+                        .padding(.top, 24)
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 6)
-                .padding(.bottom, 28)
+                .padding(.bottom, 24)
             }
             .scrollIndicators(.hidden)
+            .opacity(busy ? 0.4 : 1)
+            .allowsHitTesting(!busy)
+            if case .editor(let isDefault, let useAsDefault) = mode {
+                footer(isDefault: isDefault, useAsDefault: useAsDefault)
+                    .opacity(busy ? 0.4 : 1)
+                    .allowsHitTesting(!busy)
+            }
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(DS.Color.label)
         .environment(\.colorScheme, .dark)
-    }
-
-    private var header: some View {
-        let isStandard = params == .standard
-        return HStack(alignment: .center) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("LOOK")
-                    .readout(13, weight: .semibold)
-                Text(isStandard ? "STANDARD" : (adjustedCount == 0 ? "CUSTOM" : "\(adjustedCount) ADJUSTED"))
-                    .readout(10)
-                    .foregroundStyle(isStandard ? Color.white.opacity(0.4) : Palette.accent)
-            }
-            .accessibilityElement(children: .combine)
-
-            Spacer()
-
-            Button {
-                withAnimation(.snappy) { params = .standard }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "arrow.counterclockwise")
-                        .font(.system(size: 11, weight: .semibold))
-                    Text("RESET")
-                        .readout(11, weight: .semibold)
-                }
-                .padding(.horizontal, 12)
-                .frame(height: 30)
-                .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
-                .contentShape(Capsule())
-            }
-            .buttonStyle(.plain)
-            .disabled(isStandard)
-            .opacity(isStandard ? 0.35 : 1)
-            .accessibilityLabel("Reset look to default")
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 24)
-        .padding(.bottom, 16)
-        .sensoryFeedback(.impact(weight: .light), trigger: isStandard) { _, new in new }
-    }
-
-    private var filmSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader("FILM")
-            ForEach(FilmLibrary.shared.films) { film in
-                FilmRow(film: film, isSelected: params.film == film.id) {
-                    withAnimation(.snappy) { params.film = film.id }
-                }
-            }
-        }
+        .sensoryFeedback(.impact(weight: .medium), trigger: resetAllPulses)
+        .sensoryFeedback(.impact(weight: .light), trigger: resetOnePulses)
+        .sensoryFeedback(.success, trigger: successPulses)
         .sensoryFeedback(.selection, trigger: params.film)
-    }
-
-    /// A creative `.cube` grade on top of the film, imported from Files.
-    private var lutSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader("CUSTOM LUT")
-            HStack(spacing: 12) {
-                if let name = params.customLUT {
-                    Text(name)
-                        .font(.system(size: 14))
-                        .foregroundStyle(Palette.accent)
-                        .lineLimit(1)
-                    Spacer()
-                    Button {
-                        withAnimation(.snappy) { params.customLUT = nil }
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .semibold))
-                            .frame(width: 30, height: 30)
-                            .overlay(Circle().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Remove custom LUT")
-                } else {
-                    Text("Rec.709 .cube looks, applied after the film")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.white.opacity(0.45))
-                    Spacer()
+        .task(id: params) {
+            // Debounced so dragging a slider doesn't queue a swatch render per tick. The source
+            // may not exist yet (the editor's negative is still decoding, the camera has no frame
+            // yet), so keep looking for a few seconds.
+            try? await Task.sleep(for: .milliseconds(140))
+            for _ in 0..<30 {
+                guard !Task.isCancelled else { return }
+                if let (source, displayReferred) = swatchSource() {
+                    swatches.update(source: source, displayReferred: displayReferred, params: params)
+                    return
                 }
-                Button {
-                    importingLUT = true
-                } label: {
-                    Text(params.customLUT == nil ? "IMPORT" : "CHANGE")
-                        .readout(11, weight: .semibold)
-                        .padding(.horizontal, 12)
-                        .frame(height: 30)
-                        .overlay(Capsule().strokeBorder(Color.white.opacity(0.22), lineWidth: 1))
-                        .contentShape(Capsule())
-                }
-                .buttonStyle(.plain)
-            }
-            if let lutError {
-                Text(lutError)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Palette.accent)
-            }
-            if params.customLUT != nil {
-                ParameterRow(
-                    spec: LookParameterSpec(title: "Strength", keyPath: \.customLUTStrength, range: 0...1, format: "%.2f"),
-                    value: $params.customLUTStrength
-                )
+                try? await Task.sleep(for: .milliseconds(300))
             }
         }
-        .fileImporter(
-            isPresented: $importingLUT,
-            allowedContentTypes: [UTType(filenameExtension: "cube") ?? .data, .data]
-        ) { result in
+        .fileImporter(isPresented: $importingLUT, allowedContentTypes: [UTType(filenameExtension: "cube") ?? .data, .data]) { result in
             do {
                 let name = try CustomLUTLibrary.shared.importLUT(from: result.get())
                 lutError = nil
-                withAnimation(.snappy) { params.customLUT = name }
+                params.customLUT = name
+                params.customLUTStrength = 1
+                successPulses += 1
             } catch {
                 lutError = error.localizedDescription
+                model.show(error.localizedDescription, error: true)
             }
         }
+    }
+
+    // MARK: Header and summary
+
+    private var header: some View {
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Look").ds(.title3Bold)
+                Text(isCamera ? "Default for new shots" : "This photo only")
+                    .ds(.footnote)
+                    .foregroundStyle(DS.Color.label2)
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isHeader)
+            Spacer()
+            if isCamera {
+                Button("Done", action: onClose)
+                    .ds(.headline)
+                    .padding(.horizontal, 4)
+                    .frame(minHeight: DS.touch)
+                    .buttonStyle(DSPlainButtonStyle())
+            } else {
+                Button(action: onClose) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(DS.Color.label2)
+                        .frame(width: 30, height: 30)
+                        .background(Circle().fill(DS.Color.surface2))
+                        .frame(width: DS.touch, height: DS.touch)
+                }
+                .buttonStyle(DSPlainButtonStyle())
+                .accessibilityLabel("Hide controls")
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, isCamera ? 0 : 14)
+        .padding(.bottom, 10)
+    }
+
+    private var summary: some View {
+        HStack {
+            HStack(spacing: 8) {
+                Circle().fill(changes > 0 ? DS.Color.accent : DS.Color.label3).frame(width: 8, height: 8)
+                Text(changes == 0 ? "Standard" : "\(changes) \(changes == 1 ? "change" : "changes")")
+                    .ds(.subheadline)
+                    .fontWeight(.semibold)
+                    .contentTransition(.numericText())
+            }
+            .accessibilityElement(children: .combine)
+            Spacer()
+            Button("Reset all") {
+                withAnimation(DS.Motion.value) {
+                    params = LookParameters.standard
+                    lutError = nil
+                }
+                resetAllPulses += 1
+                model.show("Look reset to Standard")
+            }
+            .ds(.subheadlineMedium)
+            .foregroundStyle(changes == 0 ? DS.Color.label3 : DS.Color.accent)
+            .padding(.horizontal, 12)
+            .frame(minHeight: DS.touch)
+            .buttonStyle(DSPlainButtonStyle())
+            .disabled(changes == 0)
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 4)
+        .frame(minHeight: 44)
+        .background(RoundedRectangle(cornerRadius: DS.radiusGroup, style: .continuous).fill(DS.Color.surface2))
+        .padding(.horizontal, DS.margin)
+        .padding(.bottom, 8)
     }
 
     private func sectionHeader(_ title: String) -> some View {
-        HStack(spacing: 10) {
-            Text(title)
-                .readout(10, weight: .semibold)
-                .foregroundStyle(Color.white.opacity(0.42))
-            Rectangle()
-                .fill(Palette.hairline)
-                .frame(height: 0.5)
-        }
-        .accessibilityAddTraits(.isHeader)
+        Text(title)
+            .ds(.footnoteSemibold)
+            .foregroundStyle(DS.Color.label2)
+            .padding(.horizontal, 32)
+            .padding(.top, 18)
+            .padding(.bottom, 6)
+            .accessibilityAddTraits(.isHeader)
     }
 
-    private func sectionView(_ section: LookSection) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            sectionHeader(section.title)
+    // MARK: Film cards
 
-            ForEach(section.rows) { spec in
-                ParameterRow(spec: spec, value: $params[dynamicMember: spec.keyPath])
-            }
-        }
-    }
-}
-
-/// One film stock: name and negative/print pairing, accent ring when selected.
-private struct FilmRow: View {
-    let film: Film
-    let isSelected: Bool
-    let select: () -> Void
-
-    var body: some View {
-        Button(action: select) {
-            HStack(spacing: 12) {
-                Circle()
-                    .strokeBorder(isSelected ? Palette.accent : Color.white.opacity(0.3), lineWidth: 1.5)
-                    .background(Circle().fill(isSelected ? Palette.accent : .clear).padding(4))
-                    .frame(width: 16, height: 16)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(film.name.uppercased())
-                        .readout(12, weight: .semibold)
-                        .foregroundStyle(isSelected ? Palette.accent : Color.white.opacity(0.88))
-                    Text(film.detail)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.white.opacity(0.45))
+    private var filmCards: some View {
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(FilmLibrary.shared.films) { film in
+                    filmCard(film)
                 }
-                Spacer()
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .background(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(Color.white.opacity(isSelected ? 0.07 : 0.03))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(isSelected ? Palette.accent.opacity(0.5) : Palette.hairline, lineWidth: 0.5)
-            )
-            .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .scrollTargetLayout()
+            .padding(.horizontal, DS.margin)
+            .padding(.vertical, 6)
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(film.name), \(film.detail)")
-        .accessibilityAddTraits(isSelected ? [.isSelected] : [])
+        .scrollIndicators(.hidden)
+        .scrollTargetBehavior(.viewAligned)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Film")
     }
-}
 
-private struct ParameterRow: View {
-    let spec: LookParameterSpec
-    @Binding var value: Double
-
-    private var formatted: String { String(format: spec.format, value) }
-
-    var body: some View {
-        let isDefault = spec.isDefault(value)
-        VStack(spacing: 2) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(spec.title)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.white.opacity(0.88))
-                Spacer()
-                Text(formatted)
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .monospacedDigit()
-                    .foregroundStyle(isDefault ? Color.white.opacity(0.5) : Palette.accent)
+    private func filmCard(_ film: Film) -> some View {
+        let selected = params.film == film.id
+        let description = film.detail.replacingOccurrences(of: " · ", with: ", ")
+        return Button {
+            params.film = film.id
+        } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                ZStack(alignment: .bottomTrailing) {
+                    Group {
+                        if let image = swatches.images[film.id] {
+                            Image(uiImage: image).resizable().scaledToFill()
+                        } else {
+                            DS.Color.surface2
+                        }
+                    }
+                    .frame(width: 96, height: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.radiusSwatch, style: .continuous))
+                    if selected {
+                        Image(systemName: "checkmark")
+                            .font(.system(size: 11, weight: .heavy))
+                            .foregroundStyle(.black)
+                            .frame(width: 20, height: 20)
+                            .background(Circle().fill(DS.Color.accent))
+                            .padding(5)
+                    }
+                }
+                .padding(4)
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.radiusSwatch + 4, style: .continuous)
+                        .strokeBorder(selected ? DS.Color.accent : .clear, lineWidth: 2)
+                )
+                .padding(-4)
+                Text(film.name)
+                    .ds(.chip)
+                    .foregroundStyle(DS.Color.label)
+                    .lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
+                    .padding(.top, 8)
+                Text(description)
+                    .ds(.caption2)
+                    .foregroundStyle(DS.Color.label2)
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 2)
             }
-            .contentShape(Rectangle())
-            // Double-tap the label line to return the parameter to its default.
-            .onTapGesture(count: 2) {
-                withAnimation(.snappy) { value = spec.defaultValue }
-            }
-            InstrumentSlider(value: $value, range: spec.range, defaultValue: spec.defaultValue)
+            .frame(width: 96, alignment: .leading)
         }
+        .buttonStyle(DSPlainButtonStyle())
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(spec.title)
-        .accessibilityValue(formatted)
-        .accessibilityAdjustableAction { direction in
-            let step = (spec.range.upperBound - spec.range.lowerBound) / 40
-            switch direction {
-            case .increment: value = min(value + step, spec.range.upperBound)
-            case .decrement: value = max(value - step, spec.range.lowerBound)
-            @unknown default: break
+        .accessibilityLabel("\(film.name), \(description.lowercased())")
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    // MARK: Setting rows
+
+    private func group(_ settings: [LookSetting]) -> some View {
+        VStack(spacing: 0) {
+            ForEach(Array(settings.enumerated()), id: \.element.id) { index, setting in
+                if index > 0 {
+                    Rectangle().fill(DS.Color.separator).frame(height: 1 / 3).padding(.leading, DS.rowPadding)
+                }
+                row(setting)
             }
         }
-        .accessibilityAction(named: "Reset to default") { value = spec.defaultValue }
+        .background(RoundedRectangle(cornerRadius: DS.radiusGroup, style: .continuous).fill(DS.Color.surface2))
+        .padding(.horizontal, DS.margin)
+    }
+
+    private func row(_ setting: LookSetting) -> some View {
+        let value = params[keyPath: setting.keyPath]
+        let changed = !setting.isDefault(value)
+        let valueText = Text(setting.format(value))
+            .ds(.subheadlineMedium)
+            .monospacedDigit()
+            .foregroundStyle(changed ? DS.Color.accent : DS.Color.label2)
+            .contentTransition(.numericText())
+        let resetButton = Button {
+            withAnimation(DS.Motion.value) { params[keyPath: setting.keyPath] = setting.defaultValue }
+            resetOnePulses += 1
+        } label: {
+            Image(systemName: "arrow.uturn.backward")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundStyle(DS.Color.label2)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(DS.Color.surface3))
+                .frame(width: 44, height: 32)
+        }
+        .buttonStyle(DSPlainButtonStyle())
+        .opacity(changed ? 1 : 0)
+        .disabled(!changed)
+        .accessibilityLabel("Reset \(setting.title) to default")
+        .accessibilityHidden(!changed)
+
+        let label = VStack(alignment: .leading, spacing: 0) {
+            Text(setting.title).ds(.subheadline)
+            if let subtitle = setting.subtitle {
+                Text(subtitle).ds(.caption1).foregroundStyle(DS.Color.label2)
+            }
+        }
+
+        return VStack(alignment: .leading, spacing: 0) {
+            if typeSize.isAccessibilitySize {
+                label
+                HStack { valueText; Spacer(); resetButton }
+            } else {
+                HStack(alignment: .center, spacing: 6) {
+                    label.frame(maxWidth: .infinity, alignment: .leading)
+                    valueText
+                    resetButton.padding(.trailing, -8)
+                }
+                .frame(minHeight: 24)
+            }
+            DSSlider(
+                value: Binding(get: { params[keyPath: setting.keyPath] }, set: { params[keyPath: setting.keyPath] = $0 }),
+                range: setting.range, step: setting.step, defaultValue: setting.defaultValue,
+                label: setting.title, valueText: setting.format
+            )
+            .padding(.horizontal, -2)
+            .onTapGesture(count: 2) {
+                withAnimation(DS.Motion.snap) { params[keyPath: setting.keyPath] = setting.defaultValue }
+                resetOnePulses += 1
+            }
+            if let ends = setting.ends {
+                HStack {
+                    Text(ends.0)
+                    Spacer()
+                    Text(ends.1)
+                }
+                .ds(.caption2)
+                .foregroundStyle(DS.Color.label3)
+                .padding(.horizontal, 12)
+                .padding(.top, -2)
+                .accessibilityHidden(true)
+            }
+        }
+        .padding(.horizontal, DS.rowPadding)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+    }
+
+    // MARK: Custom LUT
+
+    private var lutGroup: some View {
+        VStack(spacing: 0) {
+            if let lutError {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(DS.Color.red)
+                        .padding(.top, 1)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(lutError).ds(.subheadline)
+                        Text("The LUT wasn’t loaded. The film look is unchanged.")
+                            .ds(.footnote)
+                            .foregroundStyle(DS.Color.label2)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, DS.rowPadding)
+                .padding(.vertical, 12)
+                .accessibilityElement(children: .combine)
+                Rectangle().fill(DS.Color.separator).frame(height: 1 / 3)
+                lutButton("Choose another file")
+            } else if let name = params.customLUT {
+                HStack(spacing: 12) {
+                    Image(systemName: "cube")
+                        .font(.system(size: 17))
+                        .frame(width: 34, height: 34)
+                        .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(DS.Color.surface3))
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text(name).ds(.subheadlineMedium).lineLimit(1).truncationMode(.middle)
+                        if let size = CustomLUTLibrary.shared.cube(named: name)?.size {
+                            Text("\(size)-point 3D LUT").ds(.caption1).foregroundStyle(DS.Color.label2)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, DS.rowPadding)
+                .padding(.vertical, 12)
+                .accessibilityElement(children: .combine)
+                Rectangle().fill(DS.Color.separator).frame(height: 1 / 3)
+                row(LookSetting.lutStrength)
+                Rectangle().fill(DS.Color.separator).frame(height: 1 / 3)
+                HStack(spacing: 0) {
+                    Button("Replace") { importingLUT = true }
+                        .foregroundStyle(DS.Color.accent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                    Rectangle().fill(DS.Color.separator).frame(width: 1 / 3, height: 44)
+                    Button("Remove") {
+                        params.customLUT = nil
+                        params.customLUTStrength = 1
+                        resetOnePulses += 1
+                    }
+                    .foregroundStyle(DS.Color.red)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .ds(.subheadline)
+                .buttonStyle(DSPlainButtonStyle())
+            } else {
+                lutButton("Import .cube file")
+            }
+        }
+        .background(RoundedRectangle(cornerRadius: DS.radiusGroup, style: .continuous).fill(DS.Color.surface2))
+        .padding(.horizontal, DS.margin)
+    }
+
+    private func lutButton(_ title: String) -> some View {
+        Button { importingLUT = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.and.arrow.down").font(.system(size: 17))
+                Text(title).ds(.subheadline)
+                Spacer()
+            }
+            .foregroundStyle(DS.Color.accent)
+            .padding(.horizontal, DS.rowPadding)
+            .frame(minHeight: 48)
+        }
+        .buttonStyle(DSPlainButtonStyle())
+    }
+
+    // MARK: Editor footer
+
+    private func footer(isDefault: Bool, useAsDefault: @escaping () -> Void) -> some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(DS.Color.separator).frame(height: 1 / 3)
+            Button {
+                useAsDefault()
+                successPulses += 1
+                model.show("Now the default for new shots")
+            } label: {
+                HStack(spacing: 8) {
+                    if isDefault { Image(systemName: "checkmark").font(.system(size: 15, weight: .bold)) }
+                    Text(isDefault ? "This is your default" : "Use as default for new shots").ds(.headline)
+                }
+                .foregroundStyle(isDefault ? DS.Color.label2 : DS.Color.label)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(DS.Color.surface2))
+            }
+            .buttonStyle(DSPlainButtonStyle())
+            .disabled(isDefault)
+            .padding(.horizontal, DS.margin)
+            .padding(.top, 10)
+        }
+        .background(DS.Color.surface1)
     }
 }
