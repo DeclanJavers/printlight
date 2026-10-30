@@ -17,7 +17,7 @@ final class FilmSwatches: ObservableObject {
     private var pending: Request?
     private var rendering = false
     private nonisolated static let size = CGSize(width: 96 * 3, height: 72 * 3)
-    private nonisolated(unsafe) static let context = CIContext(options: [
+    private nonisolated static let context = CIContext(options: [
         .workingColorSpace: CGColorSpace(name: CGColorSpace.extendedLinearSRGB)!,
         .workingFormat: CIFormat.RGBAh,
         .cacheIntermediates: false,
