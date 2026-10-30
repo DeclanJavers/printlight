@@ -17,9 +17,15 @@ struct LibraryView: View {
     @State private var filter: Filter = .all
     @State private var selecting = false
     @State private var selection: Set<String> = []
+    /// The developing capture, opened straight in the Editor (it isn't in Photos yet).
     @State private var editing: Shot?
-    @State private var openingID: String?
-    @State private var openTask: Task<Void, Never>?
+    @State private var viewing: ViewerTarget?
+
+    private struct ViewerTarget: Identifiable {
+        let id = UUID()
+        let assets: [PHAsset]
+        let index: Int
+    }
     @State private var selectionTicks = 0
 
     /// The library is owned by AppModel; observed here directly so the grid updates.
@@ -55,14 +61,15 @@ struct LibraryView: View {
         .environment(\.colorScheme, .dark)
         .overlay(alignment: .bottom) {
             if selecting { selectionToolbar }
-            else if openingID != nil, let progress = model.openingProgress, progress > 0, progress < 1 {
-                downloadCard(progress)
-            }
         }
         .dsToast(text: $model.message, isError: model.messageIsError, top: 52)
         .sensoryFeedback(.selection, trigger: selectionTicks)
         .fullScreenCover(item: $editing) { shot in
             EditorView(shot: shot).environmentObject(model)
+        }
+        .fullScreenCover(item: $viewing) { target in
+            ViewerView(assets: target.assets, startIndex: target.index, library: library)
+                .environmentObject(model)
         }
         .onAppear { library.refresh() }
     }
@@ -330,13 +337,6 @@ struct LibraryView: View {
                         .padding(5)
                     }
                 }
-                .overlay {
-                    if openingID == id {
-                        let progress = model.openingProgress
-                        progressOverlay(label: progress.map { $0 > 0 && $0 < 1 ? "\(Int($0 * 100))%" : "Opening" } ?? "Opening",
-                                        progress: progress.flatMap { $0 > 0 && $0 < 1 ? $0 : nil })
-                    }
-                }
         }
         .buttonStyle(DSPlainButtonStyle())
         .accessibilityLabel(cellLabel(asset, other: other))
@@ -377,13 +377,9 @@ struct LibraryView: View {
             selectionTicks += 1
             return
         }
-        guard openingID == nil else { return }
-        openingID = id
-        openTask = Task {
-            let shot = await model.open(asset)
-            guard !Task.isCancelled else { return }
-            openingID = nil
-            if let shot { editing = shot }
+        let list = visible
+        if let index = list.firstIndex(where: { $0.localIdentifier == id }) {
+            viewing = ViewerTarget(assets: list, index: index)
         }
     }
 
@@ -428,39 +424,6 @@ struct LibraryView: View {
         .transition(.move(edge: .bottom))
     }
 
-    private func downloadCard(_ progress: Double) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "icloud.and.arrow.down").font(.system(size: 19))
-            VStack(alignment: .leading, spacing: 0) {
-                Text("Downloading from iCloud").ds(.subheadlineMedium)
-                Text("\(Int(progress * 100))%").ds(.footnote).foregroundStyle(DS.Color.label2).monospacedDigit()
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(DS.Color.surface3)
-                        Capsule().fill(Color.white).frame(width: geo.size.width * progress)
-                    }
-                }
-                .frame(height: 4)
-                .padding(.top, 7)
-            }
-            Button("Cancel") {
-                openTask?.cancel()
-                openTask = nil
-                openingID = nil
-            }
-            .ds(.subheadline)
-            .foregroundStyle(DS.Color.accent)
-            .padding(.horizontal, 4)
-            .frame(minHeight: DS.touch)
-            .buttonStyle(DSPlainButtonStyle())
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .overlayMaterial(in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .padding(.horizontal, DS.margin)
-        .padding(.bottom, 10)
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
 
     // MARK: States
 

@@ -14,6 +14,7 @@
 		2ABCA2232146BDEAF645C73E /* vision250d.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = DCD66CC01525113EF898918D /* vision250d.cube.bin */; };
 		341D889A3C252759B822995F /* FilmLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCA0094CEFDA74172B664AC /* FilmLibrary.swift */; };
 		3D05CCAD81F401587176041A /* FilmSwatches.swift in Sources */ = {isa = PBXBuildFile; fileRef = E28C42A0B7A15A83E5F5331A /* FilmSwatches.swift */; };
+		472F697C4E9B9FB92CAF8B5A /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 145A1183B69AD81CD733B325 /* ViewerView.swift */; };
 		4A449236CEF781404DFD9468 /* LookParameters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48408AF81F0D7FFE8E2676E5 /* LookParameters.swift */; };
 		586D858288114ECF25C98D0E /* portra400.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 12334669E60EA1C6B16FB49D /* portra400.cube.bin */; };
 		588AB965AC9BB6D74A0D745B /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B104C2E596F34BEC613A2C8B /* EditorView.swift */; };
@@ -43,6 +44,7 @@
 /* Begin PBXFileReference section */
 		12334669E60EA1C6B16FB49D /* portra400.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = portra400.cube.bin; sourceTree = "<group>"; };
 		135F064C2406CD107FBAD1AB /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
+		145A1183B69AD81CD733B325 /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
 		14ADBC02A20B74FC6E350A20 /* FilmLook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmLook.swift; sourceTree = "<group>"; };
 		28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "LICENSE-FILMS.txt"; sourceTree = "<group>"; };
 		3F90CA568E0E0B6DCFE88E9F /* Look.ci.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Look.ci.metal; sourceTree = "<group>"; };
@@ -129,6 +131,7 @@
 				135F064C2406CD107FBAD1AB /* LibraryView.swift */,
 				4A70AC09EF7C5EA52B7EF1D3 /* LookControlsView.swift */,
 				858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */,
+				145A1183B69AD81CD733B325 /* ViewerView.swift */,
 			);
 			path = UI;
 			sourceTree = "<group>";
@@ -286,6 +289,7 @@
 				06061C6B2374D554AA13A2D4 /* PrintlightApp.swift in Sources */,
 				DCB50DBA28C0AFE2F8F30A29 /* RawDeveloper.swift in Sources */,
 				FBC49C458EAA75CC5F31CC62 /* ShotLibrary.swift in Sources */,
+				472F697C4E9B9FB92CAF8B5A /* ViewerView.swift in Sources */,
 				833099F4A0E05CB25DA0EDBE /* WhiteBalance.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
