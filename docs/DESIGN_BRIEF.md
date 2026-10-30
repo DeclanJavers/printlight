@@ -192,7 +192,7 @@ photo as it currently looks in Photos.
 - Shots deleted in the Photos app disappear here automatically.
 - **States to design:**
   - Loading
-  - Empty: "No shots yet"
+  - Empty: "No RAW photos yet"
   - No access: the user didn't allow photo access. Shots still save to Photos, but can't be listed
     here. Needs an explanation and an "Open Settings" button. Limited access is enough.
   - Download in progress
@@ -200,7 +200,8 @@ photo as it currently looks in Photos.
 
 ### 4. Editor (re-develop a shot)
 
-Opened from the Library. Works on any Printlight shot, starting from the settings it was saved with.
+Opened from the Library. Works on any RAW in the Library. A Printlight shot starts from the settings
+it was saved with; any other RAW starts from the user's default look.
 
 - Large view of the photo, re-developed live as settings change (each update takes about 0.15 s).
 - A loading state while the photo is prepared (about 1–2 seconds after opening).
@@ -209,7 +210,8 @@ Opened from the Library. Works on any Printlight shot, starting from the setting
 - **Save:** develops the photo at full resolution and updates that same photo in Photos with the
   new look (no duplicate is created; the RAW original is untouched and Photos can always revert).
   It takes a few seconds and needs a progress state, then a success or failure message.
-- Unsaved-changes handling: leaving with changes should ask, or make clear the edit isn't saved.
+- Unsaved-changes handling (not built yet; design it): leaving with changes should ask, or make
+  clear the edit isn't saved.
 - **Use as default:** makes these settings the default for future shots. It needs a confirmed state
   when the editor's settings already equal the default.
 - **Done:** returns to the camera.
@@ -219,8 +221,8 @@ Opened from the Library. Works on any Printlight shot, starting from the setting
 - First-run permission prompts:
   - **Camera** access.
   - **Photos** access, asked at the first save. iOS offers **Full**, **Limited** and **Don't Allow**.
-    Limited is enough, because Printlight only needs its own photos. If the user refuses, saving
-    still works but the Library is unavailable.
+    Limited is enough for Printlight's own shots; other RAWs then appear only once the user adds
+    them. If the user refuses, saving still works but the Library is unavailable.
 - Design any pre-prompt or explanation screens you think are needed (for example, explaining why
   Limited is fine), plus the denied states.
 - Every capture is saved automatically to Photos as one photo (RAW + Printlight edit), and also
@@ -242,6 +244,6 @@ Opened from the Library. Works on any Printlight shot, starting from the setting
 6. **Layout specs** for iPhone 17 Pro and a 6.1" iPhone, with safe areas and the Dynamic Island.
 7. **Accessibility notes:** VoiceOver labels and order, plus Dynamic Type behaviour.
 
-Keep to the feature set above. If you have ideas for new features (a gallery, shooting modes, more
-controls), put them in a clearly separate "proposals" section rather than mixing them into the core
-screens. A gallery is no longer a proposal: the Library above is part of the core scope.
+Keep to the feature set above. If you have ideas for new features (shooting modes, more controls,
+sharing), put them in a clearly separate "proposals" section rather than mixing them into the core
+screens.
