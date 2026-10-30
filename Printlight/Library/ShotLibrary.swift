@@ -18,6 +18,9 @@ final class ShotLibrary: NSObject, ObservableObject {
     @Published private(set) var availability: Availability = .unknown
     /// Limited access: only photos the user picked (plus Printlight's own) are visible.
     @Published private(set) var isLimited = false
+    /// Identifiers of assets Printlight created (the "Printlight" filter); everything else in
+    /// `assets` is a RAW from another app.
+    @Published private(set) var ownIDs: Set<String> = []
 
     let imageManager = PHCachingImageManager()
     private let indexKey = "printlight.library.assetIDs"
@@ -58,6 +61,9 @@ final class ShotLibrary: NSObject, ObservableObject {
                 existing.insert(asset.localIdentifier)
             }
             if existing.count != ids.count { index = ids.filter(existing.contains) }
+            ownIDs = existing
+        } else {
+            ownIDs = []
         }
         let ownCount = byID.count
         var albumCount = -1

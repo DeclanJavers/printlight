@@ -49,6 +49,11 @@ final class AppModel: ObservableObject {
     @Published private(set) var thumbnail: UIImage?
     @Published private(set) var developingCount = 0
     @Published var message: String?
+    /// Whether `message` is an error (red icon, shown for 4 s instead of 2.5 s).
+    @Published private(set) var messageIsError = false
+    /// The first save waits on this explanation of Photos access before the system prompt.
+    @Published private(set) var showPhotosPrePrompt = false
+    private var prePromptContinuation: CheckedContinuation<Void, Never>?
     /// Download progress while a library shot's RAW is fetched (from iCloud if needed).
     @Published private(set) var openingProgress: Double?
 
@@ -61,7 +66,7 @@ final class AppModel: ObservableObject {
         let preview = self.preview
         camera.onPreviewFrame = { @Sendable frame in preview.enqueue(frame) }
         camera.onRawCaptured = { [weak self] dng in self?.handleCapture(dng) }
-        camera.onCaptureError = { [weak self] text in self?.message = text }
+        camera.onCaptureError = { [weak self] text in self?.show(text, error: true) }
         // Until something is shot this session, the thumbnail shows the newest library shot.
         libraryWatch = library.$assets.sink { [weak self] assets in
             guard let self, self.thumbnail == nil, let newest = assets.first else { return }
@@ -69,6 +74,29 @@ final class AppModel: ObservableObject {
                 let image = await self.libraryThumbnail(for: newest, side: 200)
                 if self.thumbnail == nil { self.thumbnail = image }
             }
+        }
+    }
+
+    func show(_ text: String, error: Bool = false) {
+        messageIsError = error
+        message = text
+    }
+
+    /// Called by the pre-prompt's Continue: the held save proceeds to the system prompt.
+    func continueFromPhotosPrePrompt() {
+        showPhotosPrePrompt = false
+        prePromptContinuation?.resume()
+        prePromptContinuation = nil
+    }
+
+    /// Before the very first save, explain where shots go (and that Limited is enough), then
+    /// let the system ask. The shot is held in memory meanwhile.
+    private func explainPhotosAccessIfNeeded() async {
+        guard PHPhotoLibrary.authorizationStatus(for: .readWrite) == .notDetermined,
+              PHPhotoLibrary.authorizationStatus(for: .addOnly) == .notDetermined else { return }
+        await withCheckedContinuation { continuation in
+            prePromptContinuation = continuation
+            showPhotosPrePrompt = true
         }
     }
 
@@ -106,7 +134,7 @@ final class AppModel: ObservableObject {
                     }
                     Self.logTiming(thumb: thumbDone - start, heic: heicDone - thumbDone, save: clock.now - heicDone, bytes: dng.count)
                 case .failure(let error):
-                    self.message = error.localizedDescription
+                    self.show(error.localizedDescription, error: true)
                 }
             }
         }
@@ -121,13 +149,13 @@ final class AppModel: ObservableObject {
     /// was saved as one edited RAW asset (the normal case).
     @discardableResult
     private func saveNew(heic: Data, dng: Data, params: LookParameters) async -> String? {
+        await explainPhotosAccessIfNeeded()
         do {
             let assetID = try await PhotoLibrarySaver.save(heic: heic, dng: dng, params: params)
             if let assetID { library.add(assetID) } else { library.refresh() }
             return assetID
         } catch {
-            let ns = error as NSError
-            message = "Couldn't save: \(error.localizedDescription) (\(ns.code))"
+            show("Couldn’t save: \(error.localizedDescription)", error: true)
             return nil
         }
     }
@@ -156,17 +184,15 @@ final class AppModel: ObservableObject {
                     saved = true
                     library.refresh()
                 } catch {
-                    message = "Couldn't save: \(error.localizedDescription)"
+                    show("Couldn’t save: \(error.localizedDescription)", error: true)
                 }
             } else {
                 saved = await saveNew(heic: heic, dng: dng, params: params) != nil
             }
             Self.logTiming(thumb: .zero, heic: developed - start, save: clock.now - developed, bytes: dng.count)
-            if saved, message == nil {
-                message = "Saved"
-            }
+            if saved { show("Saved to Photos") }
         case .failure(let error):
-            message = error.localizedDescription
+            show(error.localizedDescription, error: true)
         }
     }
 
@@ -183,7 +209,7 @@ final class AppModel: ObservableObject {
             let thumbnail = await libraryThumbnail(for: asset, side: 1200) ?? UIImage()
             return Shot(dng: dng, thumbnail: thumbnail, params: saved ?? params, assetID: assetID)
         } catch {
-            message = error.localizedDescription
+            show("This photo can’t be opened. It was deleted or has no RAW.", error: true)
             return nil
         }
     }

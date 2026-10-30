@@ -55,6 +55,11 @@ final class PreviewRenderer: NSObject, MTKViewDelegate, @unchecked Sendable {
         }
     }
 
+    /// The newest camera frame as delivered (Apple-rendered, display-referred, upright).
+    func currentFrame() -> CIImage? {
+        lock.withLock { latestFrame }
+    }
+
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
 
     func draw(in view: MTKView) {

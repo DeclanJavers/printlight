@@ -13,6 +13,7 @@
 		1642CEE4AC65E0EA92CA8176 /* FilmLook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14ADBC02A20B74FC6E350A20 /* FilmLook.swift */; };
 		2ABCA2232146BDEAF645C73E /* vision250d.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = DCD66CC01525113EF898918D /* vision250d.cube.bin */; };
 		341D889A3C252759B822995F /* FilmLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDCA0094CEFDA74172B664AC /* FilmLibrary.swift */; };
+		3D05CCAD81F401587176041A /* FilmSwatches.swift in Sources */ = {isa = PBXBuildFile; fileRef = E28C42A0B7A15A83E5F5331A /* FilmSwatches.swift */; };
 		4A449236CEF781404DFD9468 /* LookParameters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48408AF81F0D7FFE8E2676E5 /* LookParameters.swift */; };
 		586D858288114ECF25C98D0E /* portra400.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 12334669E60EA1C6B16FB49D /* portra400.cube.bin */; };
 		588AB965AC9BB6D74A0D745B /* EditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B104C2E596F34BEC613A2C8B /* EditorView.swift */; };
@@ -26,6 +27,7 @@
 		D33545317AB92D7BB4E183AB /* LICENSE-FILMS.txt in Resources */ = {isa = PBXBuildFile; fileRef = 28B592C61CC0E8D27F1D2D2B /* LICENSE-FILMS.txt */; };
 		D9EEC8021194B6D7A700E9CE /* mono2383.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = E1629FBCFDCB56D8742DCEC5 /* mono2383.cube.bin */; };
 		DCB50DBA28C0AFE2F8F30A29 /* RawDeveloper.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB879000F0D07DE49B70516 /* RawDeveloper.swift */; };
+		DDA2B1A14A8E94B7F40DAE21 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F263215C3A0DF5A3C42C1237 /* DesignSystem.swift */; };
 		E268DB6E603F1D67AFEFD26C /* PreviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */; };
 		E308D8F3E8058DE0542971C9 /* gold200.cube.bin in Resources */ = {isa = PBXBuildFile; fileRef = 46C689AAE71EF66115F3DEB9 /* gold200.cube.bin */; };
 		E3A5CF576B7F47C893FA57AE /* films.json in Resources */ = {isa = PBXBuildFile; fileRef = 7E9F66346CBC6CBC658A6EBC /* films.json */; };
@@ -66,7 +68,9 @@
 		DCD66CC01525113EF898918D /* vision250d.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = vision250d.cube.bin; sourceTree = "<group>"; };
 		DDCA0094CEFDA74172B664AC /* FilmLibrary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmLibrary.swift; sourceTree = "<group>"; };
 		E1629FBCFDCB56D8742DCEC5 /* mono2383.cube.bin */ = {isa = PBXFileReference; lastKnownFileType = archive.macbinary; path = mono2383.cube.bin; sourceTree = "<group>"; };
+		E28C42A0B7A15A83E5F5331A /* FilmSwatches.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmSwatches.swift; sourceTree = "<group>"; };
 		EDD423C06B33893D4F5C2D5F /* CameraController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraController.swift; sourceTree = "<group>"; };
+		F263215C3A0DF5A3C42C1237 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -116,7 +120,9 @@
 			isa = PBXGroup;
 			children = (
 				844EBE26338AE1263670179B /* CameraView.swift */,
+				F263215C3A0DF5A3C42C1237 /* DesignSystem.swift */,
 				B104C2E596F34BEC613A2C8B /* EditorView.swift */,
+				E28C42A0B7A15A83E5F5331A /* FilmSwatches.swift */,
 				135F064C2406CD107FBAD1AB /* LibraryView.swift */,
 				4A70AC09EF7C5EA52B7EF1D3 /* LookControlsView.swift */,
 				858AE3DAB9738F8F8D5C33E4 /* PreviewView.swift */,
@@ -261,9 +267,11 @@
 				7E0AA9140C97C64A6A6FDE60 /* CameraController.swift in Sources */,
 				BDBD4D6223DFE3250B1ACBAF /* CameraView.swift in Sources */,
 				85FBF4AE5D77E8F54A0E21D2 /* CustomLUTLibrary.swift in Sources */,
+				DDA2B1A14A8E94B7F40DAE21 /* DesignSystem.swift in Sources */,
 				588AB965AC9BB6D74A0D745B /* EditorView.swift in Sources */,
 				341D889A3C252759B822995F /* FilmLibrary.swift in Sources */,
 				1642CEE4AC65E0EA92CA8176 /* FilmLook.swift in Sources */,
+				3D05CCAD81F401587176041A /* FilmSwatches.swift in Sources */,
 				E4B061E6BC78B9212D37F7F0 /* LibraryView.swift in Sources */,
 				15BD9B92781A3EB7C3426A1D /* Look.ci.metal in Sources */,
 				E75D4A1FBCD600857A2C5888 /* LookControlsView.swift in Sources */,
@@ -290,9 +298,9 @@
 				DEVELOPMENT_TEAM = 56M2NM3C49;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Printlight;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Printlight uses the camera to capture RAW photos.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Printlight uses the camera to take RAW photos.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Printlight saves your developed photos and their RAW negatives to your library.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Printlight reads back the photos it took so you can re-edit them. With Limited access it only sees its own photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Printlight saves your shots to Photos and shows them in its Library so you can re-develop them.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;
@@ -318,9 +326,9 @@
 				DEVELOPMENT_TEAM = 56M2NM3C49;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Printlight;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Printlight uses the camera to capture RAW photos.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Printlight uses the camera to take RAW photos.";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Printlight saves your developed photos and their RAW negatives to your library.";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Printlight reads back the photos it took so you can re-edit them. With Limited access it only sees its own photos.";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Printlight saves your shots to Photos and shows them in its Library so you can re-develop them.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UIRequiresFullScreen = YES;
 				INFOPLIST_KEY_UIStatusBarHidden = YES;

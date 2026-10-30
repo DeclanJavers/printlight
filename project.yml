@@ -27,9 +27,9 @@ targets:
         MTLLINKER_FLAGS: -fcikernel
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Printlight
-        INFOPLIST_KEY_NSCameraUsageDescription: Printlight uses the camera to capture RAW photos.
+        INFOPLIST_KEY_NSCameraUsageDescription: Printlight uses the camera to take RAW photos.
         INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription: Printlight saves your developed photos and their RAW negatives to your library.
-        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Printlight reads back the photos it took so you can re-edit them. With Limited access it only sees its own photos.
+        INFOPLIST_KEY_NSPhotoLibraryUsageDescription: Printlight saves your shots to Photos and shows them in its Library so you can re-develop them.
         INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIStatusBarHidden: YES
