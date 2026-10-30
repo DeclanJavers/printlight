@@ -10,3 +10,4 @@ lookdev/sheets/
 lookdev/harness/build/
 lookdev/samples/.cache/
 raw/
+lookdev/icon/*.png
